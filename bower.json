@@ -1,0 +1,10 @@
+{
+  "name": "e-resource",
+  "version": "0.0.1",
+  "dependencies": {
+    "angular": "1.2.x"
+  },
+  "devDependencies": {
+    "angular-mocks": "1.2.x"
+  }
+}

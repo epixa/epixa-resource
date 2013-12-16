@@ -1,0 +1,22 @@
+{
+  "name": "e-resource",
+  "version": "0.0.1",
+  "description": "An angular module for REST based api access",
+  "author": "Court Ewing <court@epixa.com>",
+  "license": "MIT",
+  "homepage": "http://github.com/epixa/e-resource",
+  "dependencies": {},
+  "devDependencies": {
+    "karma": "0.10.x",
+    "karma-coverage": "0.1.x",
+    "bower": "1.2.x"
+  },
+  "scripts": {
+    "test": "karma start test.config.js",
+    "postinstall": "bower install"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/epixa/e-resource.git"
+  }
+}
