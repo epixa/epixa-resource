@@ -3,8 +3,8 @@
 var eResource = angular.module('eResource', []);
 
 eResource.factory('api', [
-  '$http', '$q', 'resourceCache', 'resourceFactory',
-  function($http, $q, cache, resourceFactory){
+  '$http', 'resourceCache', 'resourceFactory',
+  function($http, cache, resourceFactory){
     return {
       get: function get(path, config) {
         var resource = cache.retrieve(path);
@@ -15,33 +15,26 @@ eResource.factory('api', [
           cache.store(resource);
         }
         return resource;
-      }/*,
-      post: function(path, data, config) {
-        var resource = resourceFactory(null, $http.post(path, data, config));
-        resource.$promise = resource.$promise.then(cache.store);
-        return resource;
-      }*/
-    };
-  }
-]);
-
-eResource.factory('resourceCache', [
-  function() {
-    var resources = {};
-    return {
-      store: function store(resource) {
-        if (resources[resource.$path] && resource !== resources[resource.$path]) {
-          throw Error('Cannot overload resource cache for ' + resource.$path);
-        }
-        resources[resource.$path] = resource;
-        return resource;
-      },
-      retrieve: function retrieve(path) {
-        return resources[path];
       }
     };
   }
 ]);
+
+eResource.factory('resourceCache', function() {
+  var resources = {};
+  return {
+    store: function store(resource) {
+      if (resources[resource.$path] && resource !== resources[resource.$path]) {
+        throw Error('Cannot overload resource cache for ' + resource.$path);
+      }
+      resources[resource.$path] = resource;
+      return resource;
+    },
+    retrieve: function retrieve(path) {
+      return resources[path];
+    }
+  };
+});
 
 eResource.factory('resourceFactory', [
   '$q',
