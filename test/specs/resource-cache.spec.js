@@ -18,7 +18,7 @@ describe('e-resource', function() {
     it('should expose a function store()', function() {
       expect(cache.store).toBeFunction();
     });
-    describe('has a function retrieve()', function() {
+    describe('has a function retrieve() that', function() {
       it('should return a stored resource when given a path', function() {
         expect(cache.retrieve('/stored-by-default')).toBe(storedByDefault);
       });
@@ -26,7 +26,7 @@ describe('e-resource', function() {
         expect(cache.retrieve('/not-stored-by-default')).toBeUndefined();
       });
     });
-    describe('has a function store()', function() {
+    describe('has a function store() that', function() {
       it('should return the same resource it is given', function() {
         var returned = cache.store(notStoredByDefault);
         expect(returned).toBe(notStoredByDefault);

@@ -21,6 +21,9 @@ describe('e-resource', function() {
       it('should return a resource', function() {
         expect(resource).toBeResource();
       });
+      it('should return the exact same resource on subsequent calls for the same path', function() {
+        expect(api.get('/foo')).toBe(resource);
+      });
       describe('returns a resource that', function() {
         it('should have a string $path set to original http response path', function() {
           expect(resource.$path).toBe('/foo');
