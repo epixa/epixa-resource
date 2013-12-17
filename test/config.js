@@ -14,7 +14,10 @@ module.exports = function(config) {
       'src/*.js': ['coverage']
     },
     coverageReporter: {
-      type: 'text-summary'
+      reporters: [
+        { type: 'lcovonly' },
+        { type: 'text-summary' }
+      ]
     },
     port: 8089,
     runnerPort: 9109,

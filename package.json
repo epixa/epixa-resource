@@ -9,7 +9,8 @@
   "devDependencies": {
     "karma": "0.10.x",
     "karma-coverage": "0.1.x",
-    "bower": "1.2.x"
+    "bower": "1.2.x",
+    "coveralls": "2.6.x"
   },
   "scripts": {
     "test": "karma start test/config.js",
