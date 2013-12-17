@@ -6,7 +6,7 @@ eResource.factory('api', [
   '$http', '$q', 'resourceCache', 'resourceFactory',
   function($http, $q, cache, resourceFactory){
     return {
-      get: function(path, config) {
+      get: function get(path, config) {
         var resource = cache.retrieve(path);
         if (!resource) {
           resource = resourceFactory(path, $http.get(path, config).then(function(response){
@@ -29,14 +29,14 @@ eResource.factory('resourceCache', [
   function() {
     var resources = {};
     return {
-      store: function(resource) {
+      store: function store(resource) {
         if (resources[resource.$path] && resource !== resources[resource.$path]) {
           throw Error('Cannot overload resource cache for ' + resource.$path);
         }
         resources[resource.$path] = resource;
         return resource;
       },
-      retrieve: function(path) {
+      retrieve: function retrieve(path) {
         return resources[path];
       }
     };
@@ -47,7 +47,7 @@ eResource.factory('resourceFactory', [
   '$q',
   function($q) {
     var ResourcePrototype = {
-      $proxyUnless: function(unlessValue, property, fn) {
+      $proxyUnless: function $proxyUnless(unlessValue, property, fn) {
         if (this[property] === unlessValue) {
           fn = angular.identity.call(null, unlessValue);
         }
@@ -71,7 +71,7 @@ eResource.factory('resourceFactory', [
           }
         });
       },
-      $extend: function(data) {
+      $extend: function $extend(data) {
         return extendResource(this, data);
       }
     };
