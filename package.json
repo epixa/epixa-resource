@@ -12,7 +12,7 @@
     "bower": "1.2.x"
   },
   "scripts": {
-    "test": "karma start test.config.js",
+    "test": "karma start test/config.js",
     "postinstall": "bower install"
   },
   "repository": {
