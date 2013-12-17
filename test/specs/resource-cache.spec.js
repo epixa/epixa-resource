@@ -1,6 +1,6 @@
 'use strict';
 
-describe('e-resource', function() {
+describe('epixa-resource', function() {
   var cache, storedByDefault, notStoredByDefault;
 
   beforeEach(module('eResource'));

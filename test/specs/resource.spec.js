@@ -1,6 +1,6 @@
 'use strict';
 
-describe('e-resource', function() {
+describe('epixa-resource', function() {
   var $rootScope, $q, resourceFactory, baseResource, populatedResource;
 
   beforeEach(module('eResource'));
