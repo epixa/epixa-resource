@@ -1,10 +1,10 @@
 {
-  "name": "e-resource",
+  "name": "epixa-resource",
   "version": "0.0.1",
   "description": "An angular module for REST based api access",
   "author": "Court Ewing <court@epixa.com>",
   "license": "MIT",
-  "homepage": "http://github.com/epixa/e-resource",
+  "homepage": "http://github.com/epixa/epixa-resource",
   "dependencies": {},
   "devDependencies": {
     "karma": "0.10.x",
@@ -17,6 +17,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/epixa/e-resource.git"
+    "url": "git://github.com/epixa/epixa-resource.git"
   }
 }
