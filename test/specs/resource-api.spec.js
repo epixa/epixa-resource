@@ -85,37 +85,90 @@ describe('epixa-resource', function() {
     });
 
     describe('.post()', function() {
-      it('sends data object in POST request to the given path');
+      var resource;
+      beforeEach(function() {
+        resource = api.post('/foo', { foo: 'notbar' });
+      });
+      afterEach(function() {
+        $httpBackend.verifyNoOutstandingExpectation();
+      });
+      it('sends data object in POST request to the given path', function() {
+        $httpBackend.expectPOST('/foo', { foo: 'notbar' });
+      });
       describe('returned resource', function() {
         describe('.$path', function() {
-          it('is null');
+          it('is null', function() {
+            expect(resource.$path).toBe(null);
+          });
           describe('when .$promise resolves', function() {
-            it('is set to <given-path>/<resource.id>');
+            beforeEach(function() {
+              $httpBackend.flush();
+              resolveAll();
+            });
+            it('is set to <given-path>/<resource.id>', function() {
+              expect(resource.$path).toBe('/foo/2');
+            });
           });
         });
         describe('when POST request fails', function() {
+          beforeEach(function() {
+            resource = api.post('/500');
+            $httpBackend.flush();
+          });
           describe('.$promise', function() {
-            it('is rejected with http error');
+            it('is rejected with http error', function() {
+              expect(getRejectedValue(resource.$promise)).toBeHttpError();
+            });
           });
         });
         describe('when POST request is successful', function() {
-          it('is extended by POST request response body');
+          beforeEach(function() {
+            $httpBackend.flush();
+            resolveAll();
+          });
+          it('is extended by POST request response body', function() {
+            expect(resource.foo).toBe('notbar');
+          });
           describe('.$promise', function() {
-            it('is resolved with the resource');
+            it('is resolved with the resource', function() {
+              expect(getResolvedValue(resource.$promise)).toBe(resource);
+            });
           });
         });
         describe('when .$promise resolves', function() {
-          it('is stored so subsequent calls to .get() for that resource do not fire a new request');
+          beforeEach(function() {
+            $httpBackend.flush();
+            api.get('/foo/2');
+            resolveAll();
+          });
+          it('is stored so subsequent calls to .get() for that resource do not fire a new request', function() {
+            $httpBackend.verifyNoOutstandingRequest();
+          });
         });
       });
       describe('when given a custom pathfinder function as the third argument', function() {
+        var pathfinder;
+        beforeEach(function() {
+          pathfinder = jasmine.createSpy('pathfinder').andReturn('/custom/pathfinder');
+          resource = api.post('/with/pathfinder', { foo: 'notbar' }, pathfinder);
+        });
         describe('returned resource', function() {
           describe('.$path', function() {
-            it('is null');
+            it('is null', function() {
+              expect(resource.$path).toBe(null);
+            });
             describe('when .$promise resolves', function() {
-              it('is set to returned value from custom pathfinder');
+              beforeEach(function() {
+                $httpBackend.flush();
+                resolveAll();
+              });
+              it('is set to returned value from custom pathfinder', function() {
+                expect(resource.$path).toBe('/custom/pathfinder');
+              });
               describe('custom pathfinder', function() {
-                it('is called with given path and returned resource');
+                it('is called with given path and returned resource', function() {
+                  expect(pathfinder).toHaveBeenCalledWith('/with/pathfinder', resource);
+                });
               });
             });
           });

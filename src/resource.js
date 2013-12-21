@@ -5,15 +5,26 @@ var eResource = angular.module('eResource', []);
 eResource.factory('resourceApi', [
   '$http', 'resourceCache', 'resourceFactory',
   function($http, cache, resourceFactory){
+    function extractData(obj) {
+      return obj.data;
+    }
+    function defaultPathfinder(path, resource) {
+      return path.substring(path.lastIndexOf('/')) + '/' + resource.id;
+    }
     return {
       get: function get(path, config) {
         var resource = cache.retrieve(path);
         if (!resource) {
-          resource = resourceFactory(path, $http.get(path, config).then(function(response){
-            return response.data;
-          }));
+          resource = resourceFactory(path, $http.get(path, config).then(extractData));
           cache.store(resource);
         }
+        return resource;
+      },
+      post: function post(path, data, pathfinder, config) {
+        angular.isFunction(pathfinder) || (pathfinder = defaultPathfinder);
+        pathfinder = pathfinder.bind(null, path);
+        var resource = resourceFactory(pathfinder, $http.post(path, data, config).then(extractData));
+        resource.$promise = resource.$promise.then(cache.store);
         return resource;
       }
     };
