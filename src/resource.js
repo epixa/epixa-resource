@@ -2,7 +2,7 @@
 
 var eResource = angular.module('eResource', []);
 
-eResource.factory('api', [
+eResource.factory('resourceApi', [
   '$http', 'resourceCache', 'resourceFactory',
   function($http, cache, resourceFactory){
     return {
@@ -24,14 +24,21 @@ eResource.factory('resourceCache', function() {
   var resources = {};
   return {
     store: function store(resource) {
+      if (!angular.isString(resource.$path)) throw new TypeError('Cannot store a resource without a string $path');
       if (resources[resource.$path] && resource !== resources[resource.$path]) {
-        throw Error('Cannot overload resource cache for ' + resource.$path);
+        throw new Error('Cannot overload resource cache for ' + resource.$path);
       }
       resources[resource.$path] = resource;
       return resource;
     },
     retrieve: function retrieve(path) {
       return resources[path];
+    },
+    remove: function remove(path) {
+      if (!angular.isDefined(path)) throw new TypeError('path must be defined');
+      var resource = resources[path];
+      delete resources[path];
+      return resource;
     }
   };
 });
@@ -40,14 +47,8 @@ eResource.factory('resourceFactory', [
   '$q',
   function($q) {
     var ResourcePrototype = {
-      $proxyUnless: function $proxyUnless(unlessValue, property, fn) {
-        if (this[property] === unlessValue) {
-          fn = angular.identity.call(null, unlessValue);
-        }
-        return this.$proxy.apply(this, Array.prototype.slice.call(arguments, 1));
-      },
       $proxy: function $proxy(property, fn) {
-        this.$proxies[property] = property in this ? this[property] : property;
+        this.$proxies[property] = property in this ? this[property] : undefined;
         var args = Array.prototype.slice.call(arguments, 2);
         Object.defineProperty(this, property, {
           configurable: true,
@@ -77,18 +78,61 @@ eResource.factory('resourceFactory', [
       return resource;
     }
 
+    function markAsLoaded(resource) {
+      resource.$loaded = true;
+      return resource;
+    }
+
     return function resourceFactory(path, data) {
-      var resource = Object.create(ResourcePrototype);
+      angular.isDefined(path) || (path = null);
+      angular.isDefined(data) || (data = {});
+
+      var resource = Object.create(ResourcePrototype, {
+        $proxies: { value: {} }
+      });
+
       if (!isThenable(data)) {
         resource.$extend(data);
       }
-      Object.defineProperties(resource, {
-        $path: { value: path },
-        $promise: { value: $q.when(data).then(function(data) {
-          return extendResource(resource, data);
-        }) },
-        $proxies: { value: {} }
+
+      Object.defineProperty(resource, '$path', {
+        configurable: true,
+        get: function() { return null; },
+        set: function(path) {
+          if (path === null) return;
+          if (!angular.isString(path)) throw new TypeError('Resource.$path must be a string, given ' + typeof path);
+          Object.defineProperty(resource, '$path', {
+            value: path,
+            writable: false,
+            enumerable: false,
+            configurable: false
+          });
+        }
       });
+
+      resource.$promise = $q.when(data).then(extendResource.bind(null, resource));
+
+      if (angular.isFunction(path)) {
+        resource.$promise = resource.$promise.then(function() {
+          resource.$path = path(resource);
+          return resource;
+        });
+      } else if (isThenable(path)) {
+        resource.$promise = path.then(function(path) {
+          resource.$path = path;
+          return resource.$promise;
+        });
+      } else if (angular.isString(path)) {
+        resource.$path = path;
+      }
+
+      resource.$promise = resource.$promise.then(markAsLoaded);
+
+      Object.defineProperties(resource, {
+        $promise: { value: resource.$promise, writable: true, enumerable: false, configurable: false },
+        $loaded: { value: false, writable: true }
+      });
+
       return resource;
     };
   }]

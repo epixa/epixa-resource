@@ -1,46 +1,90 @@
 'use strict';
 
 describe('epixa-resource', function() {
-  var cache, storedByDefault, notStoredByDefault;
-
   beforeEach(module('eResource'));
-  beforeEach(inject(function($injector) {
-    storedByDefault = { $path: '/stored-by-default' };
-    notStoredByDefault = { $path: '/not-stored-by-default' };
-    cache = $injector.get('resourceCache');
-    cache.store(storedByDefault);
-  }));
 
-  describe('resourceCache', function() {
-    it('should expose a function retrieve()', function() {
-      expect(cache.retrieve).toBeFunction();
+  describe('resource-cache()', function() {
+    var cache, storedByDefault, notStoredByDefault;
+    beforeEach(inject(function($injector) {
+      cache = $injector.get('resourceCache');
+      notStoredByDefault = { $path: '/not-stored-by-default' };
+      storedByDefault = { $path: '/stored-by-default' };
+      cache.store(storedByDefault);
+    }));
+
+    describe('.retrieve()', function() {
+      var resource;
+      describe('when given a path of a resource that was previously stored', function() {
+        beforeEach(function() {
+          resource = cache.retrieve('/stored-by-default');
+        });
+        it('returns that exact resource object', function() {
+          expect(resource).toBe(storedByDefault);
+        });
+      });
+      describe('when given a path for a resource that is not stored', function() {
+        beforeEach(function() {
+          resource = cache.retrieve('/not-stored-by-default');
+        });
+        it('returns undefined', function() {
+          expect(resource).toBeUndefined();
+        });
+      });
     });
-    it('should expose a function store()', function() {
-      expect(cache.store).toBeFunction();
+    describe('.store()', function() {
+      var returnedResource;
+      beforeEach(function() {
+        returnedResource = cache.store(notStoredByDefault);
+      });
+      it('returns the resource it is given (fluent interface)', function() {
+        expect(returnedResource).toBe(notStoredByDefault);
+      });
+      it('is idempotent', function() {
+        expect(cache.store.bind(null, notStoredByDefault)).not.toThrow();
+      });
+      describe('when the first argument is undefined', function() {
+        it('throws an error', function() {
+          expect(cache.store.bind(null)).toThrow();
+        });
+      });
+      describe('when given a new object with the same .$path as a resource that has already been stored', function() {
+        it('throws an error', function() {
+          expect(cache.store.bind(null, { $path: '/stored-by-default' })).toThrow();
+        });
+      });
+      describe('when given a resource.$path that is not a string', function() {
+        it('throws an error', function() {
+          expect(cache.store.bind(null, { $path: null })).toThrow();
+          expect(cache.store.bind(null, { $path: undefined })).toThrow();
+          expect(cache.store.bind(null, { $path: 1 })).toThrow();
+          expect(cache.store.bind(null, { $path: true })).toThrow();
+          expect(cache.store.bind(null, { $path: {} })).toThrow();
+          expect(cache.store.bind(null, { $path: angular.noop })).toThrow();
+        });
+      });
     });
-    describe('has a function retrieve() that', function() {
-      it('should return a stored resource when given a path', function() {
-        expect(cache.retrieve('/stored-by-default')).toBe(storedByDefault);
+    describe('.remove()', function() {
+      describe('when the first argument is undefined', function() {
+        it('throws an error', function() {
+          expect(cache.remove.bind(null)).toThrow();
+        });
       });
-      it('should return `undefined` when given a non-stored resource path', function() {
-        expect(cache.retrieve('/not-stored-by-default')).toBeUndefined();
+      describe('when no resource.$path is stored that matches the first argument', function() {
+        it('returns undefined', function() {
+          expect(cache.remove('/not-stored-by-default')).toBeUndefined();
+        });
       });
-    });
-    describe('has a function store() that', function() {
-      it('should return the same resource it is given', function() {
-        var returned = cache.store(notStoredByDefault);
-        expect(returned).toBe(notStoredByDefault);
-      });
-      it('should store the resource so its returned on subsequent calls to retrieve()', function() {
-        cache.store(notStoredByDefault);
-        expect(cache.retrieve('/not-stored-by-default')).toBe(notStoredByDefault);
-      });
-      it('should have no effect when given an already stored resource', function() {
-        expect(cache.store.bind(null, storedByDefault)).not.toThrow();
-      });
-      it('should throw an error when given an already-stored $path but not exactly the same resource object', function() {
-        var liar = { $path: '/stored-by-default' };
-        expect(cache.store.bind(null, liar)).toThrow();
+      describe('when a stored resource.$path matches the first argument', function() {
+        var returnedResource;
+        beforeEach(function() {
+          returnedResource = cache.remove('/stored-by-default');
+        });
+        it('removes the matching resource', function() {
+          expect(cache.retrieve('/stored-by-default')).toBeUndefined();
+        });
+        it('returns that resource', function() {
+          expect(returnedResource).toBe(storedByDefault);
+        });
       });
     });
   });

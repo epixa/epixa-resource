@@ -10,25 +10,6 @@ beforeEach(function() {
       };
       return isThenable(actual);
     },
-    toBeResource: function() {
-      var actual = this.actual;
-      var notText = this.isNot ? " not" : "";
-      this.message = function() {
-        return "Expected " + actual + notText + " to be a Resource";
-      };
-      return angular.isObject(actual)
-        && actual.hasOwnProperty('$path')
-        && isThenable(actual.$promise)
-        && angular.isObject(actual.$proxies);
-    },
-    toBeFunction: function() {
-      var actual = this.actual;
-      var notText = this.isNot ? " not" : "";
-      this.message = function() {
-        return "Expected " + actual + notText + " to be a function";
-      };
-      return angular.isFunction(actual);
-    },
     toBeObject: function() {
       var actual = this.actual;
       var notText = this.isNot ? " not" : "";
@@ -41,9 +22,17 @@ beforeEach(function() {
       var actual = this.actual;
       var notText = this.isNot ? " not" : "";
       this.message = function() {
-        return "Expected " + actual + notText + " to have property " + property;
+        return "Expected " + JSON.stringify(actual) + notText + " to have property " + property;
       };
       return property in actual;
+    },
+    toBeHttpError: function() {
+      var actual = this.actual;
+      var notText = this.isNot ? " not" : "";
+      this.message = function() {
+        return "Expected " + JSON.stringify(actual) + notText + " to be an http error";
+      };
+      return actual.hasOwnProperty('data') && actual.hasOwnProperty('status') && actual.hasOwnProperty('headers');
     }
   });
   function isThenable(obj) {
