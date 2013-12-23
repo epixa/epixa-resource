@@ -11,13 +11,19 @@ describe('epixa-resource', function() {
     var maxFooId = 2;
     $httpBackend.whenGET('/foo/1').respond({ id:1, 'foo':'bar' });
     $httpBackend.whenGET('/404').respond(404);
+
     $httpBackend.whenPOST('/foo').respond(201, {id:2, 'foo':'notbar'});
     $httpBackend.whenPOST('/with/pathfinder').respond(201, {id:1, 'something':'else'});
     $httpBackend.whenPOST('/500').respond(500);
+
     $httpBackend.whenGET('/already-stored').respond(200, {id:1, 'foo':'notbar'});
     $httpBackend.whenPUT('/already-stored').respond(200, {id:1, 'foo':'bar'});
     $httpBackend.whenPUT('/not-yet-stored').respond(200, {id:1, 'foo':'bar'});
     $httpBackend.whenPUT('/422').respond(422);
+
+    $httpBackend.whenGET('/thing-to-delete').respond(200);
+    $httpBackend.whenDELETE('/thing-to-delete').respond(202);
+    $httpBackend.whenDELETE('/422').respond(422);
   }));
 
   describe('resource-api', function() {
@@ -255,13 +261,56 @@ describe('epixa-resource', function() {
     });
 
     describe('.delete()', function() {
-      it('sends DELETE request to the given path');
+      beforeEach(function() {
+        api.delete('/thing-to-delete');
+      });
+      afterEach(function() {
+        $httpBackend.verifyNoOutstandingExpectation();
+      });
+      it('sends DELETE request to the given path', function() {
+        $httpBackend.expectDELETE('/thing-to-delete');
+      });
       describe('returned promise', function() {
         describe('when DELETE request fails', function() {
-          it('is rejected with http error');
+          var promise;
+          beforeEach(function() {
+            promise = api.delete('/422');
+            $httpBackend.flush();
+          });
+          it('is rejected with http error', function() {
+            expect(getRejectedValue(promise)).toBeHttpResponse();
+          });
         });
         describe('when DELETE request is successful', function() {
-          it('is resolved with http response');
+          var promise;
+          beforeEach(function() {
+            promise = api.delete('/thing-to-delete');
+            $httpBackend.flush();
+          });
+          it('is resolved with http response', function() {
+            expect(getResolvedValue(promise)).toBeHttpResponse();
+          });
+        });
+      });
+    });
+    describe('when path matches the .$path of a stored resource', function() {
+      var promise;
+      beforeEach(function() {
+        api.get('/thing-to-delete'); // ensure the thing is stored before delete
+        promise = api.delete('/thing-to-delete');
+        $httpBackend.flush();
+      });
+      describe('stored resource', function() {
+        describe('when returned promise resolves', function() {
+          beforeEach(function() {
+            api.get('/thing-to-delete');
+          });
+          afterEach(function() {
+            $httpBackend.verifyNoOutstandingExpectation();
+          });
+          it('is removed from cache so future requests to that resource do fire an http request', function() {
+            $httpBackend.expectGET('/thing-to-delete');
+          });
         });
       });
     });

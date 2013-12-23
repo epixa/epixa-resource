@@ -39,6 +39,12 @@ eResource.factory('resourceApi', [
           resource.$promise = resource.$promise.then(cache.store);
           return resource;
         });
+      },
+      delete: function(path, config) {
+        return $http.delete(path, config).then(function(response) {
+          cache.remove(path);
+          return response;
+        });
       }
     };
   }
