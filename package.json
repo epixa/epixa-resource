@@ -1,6 +1,7 @@
 {
   "name": "epixa-resource",
   "version": "0.0.1",
+  "private": true,
   "description": "An angular module for REST based api access",
   "author": "Court Ewing <court@epixa.com>",
   "license": "MIT",
