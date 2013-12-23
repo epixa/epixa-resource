@@ -2,7 +2,7 @@
   "name": "epixa-resource",
   "version": "0.0.1",
   "private": true,
-  "description": "An angular module for REST based api access",
+  "description": "An angular.js module for mapping http requests to/from defined model objects.",
   "author": "Court Ewing <court@epixa.com>",
   "license": "MIT",
   "homepage": "http://github.com/epixa/epixa-resource",
