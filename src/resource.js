@@ -1,9 +1,9 @@
 (function(angular, undefined){'use strict';
 
-var eResource = angular.module('eResource', []);
+var eResource = angular.module('epixa-resource', []);
 
-eResource.factory('resourceApi', [
-  '$http', 'resourceCache', 'resourceFactory',
+eResource.factory('resource-api', [
+  '$http', 'resource-cache', 'resource-factory',
   function($http, cache, resourceFactory){
     function extractData(obj) {
       return obj.data;
@@ -50,7 +50,7 @@ eResource.factory('resourceApi', [
   }
 ]);
 
-eResource.factory('resourceCache', function() {
+eResource.factory('resource-cache', function() {
   var resources = {};
   return {
     store: function store(resource) {
@@ -73,7 +73,7 @@ eResource.factory('resourceCache', function() {
   };
 });
 
-eResource.factory('resourceFactory', [
+eResource.factory('resource-factory', [
   '$q',
   function($q) {
     var ResourcePrototype = {

@@ -1,7 +1,7 @@
 'use strict';
 
 describe('epixa-resource', function() {
-  beforeEach(module('eResource'));
+  beforeEach(module('epixa-resource'));
 
   var $rootScope, $httpBackend;
   beforeEach(inject(function($injector) {
@@ -29,7 +29,7 @@ describe('epixa-resource', function() {
   describe('resource-api', function() {
     var api;
     beforeEach(inject(function($injector) {
-      api = $injector.get('resourceApi');
+      api = $injector.get('resource-api');
     }));
 
     describe('.get()', function() {

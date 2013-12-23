@@ -1,7 +1,7 @@
 'use strict';
 
 describe('epixa-resource', function() {
-  beforeEach(module('eResource'));
+  beforeEach(module('epixa-resource'));
 
   var $rootScope, $q;
   beforeEach(inject(function($injector) {
@@ -12,7 +12,7 @@ describe('epixa-resource', function() {
   describe('resource-factory()', function() {
     var factory;
     beforeEach(inject(function($injector) {
-      factory = $injector.get('resourceFactory');
+      factory = $injector.get('resource-factory');
     }));
 
     describe('returned resource', function() {

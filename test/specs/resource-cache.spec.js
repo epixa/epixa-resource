@@ -1,12 +1,12 @@
 'use strict';
 
 describe('epixa-resource', function() {
-  beforeEach(module('eResource'));
+  beforeEach(module('epixa-resource'));
 
   describe('resource-cache()', function() {
     var cache, storedByDefault, notStoredByDefault;
     beforeEach(inject(function($injector) {
-      cache = $injector.get('resourceCache');
+      cache = $injector.get('resource-cache');
       notStoredByDefault = { $path: '/not-stored-by-default' };
       storedByDefault = { $path: '/stored-by-default' };
       cache.store(storedByDefault);
