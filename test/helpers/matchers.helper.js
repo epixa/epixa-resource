@@ -10,6 +10,17 @@ beforeEach(function() {
       };
       return isThenable(actual);
     },
+    toBeResource: function() {
+      var actual = this.actual;
+      var notText = this.isNot ? " not" : "";
+      this.message = function() {
+        return "Expected " + actual + notText + " to be a Resource";
+      };
+      return angular.isObject(actual)
+        && actual.hasOwnProperty('$path')
+        && isThenable(actual.$promise)
+        && angular.isObject(actual.$proxies);
+    },
     toBeObject: function() {
       var actual = this.actual;
       var notText = this.isNot ? " not" : "";

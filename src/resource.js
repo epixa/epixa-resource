@@ -26,6 +26,19 @@ eResource.factory('resourceApi', [
         var resource = resourceFactory(pathfinder, $http.post(path, data, config).then(extractData));
         resource.$promise = resource.$promise.then(cache.store);
         return resource;
+      },
+      put: function put(path, data, config) {
+        var promise = $http.put(path, data, config).then(extractData);
+        return resourceFactory(path, promise).$promise.then(function(resource) {
+          var storedResource = cache.retrieve(resource.$path);
+          if (storedResource) {
+            return promise.then(function(data) {
+              return storedResource.$extend(data);
+            });
+          }
+          resource.$promise = resource.$promise.then(cache.store);
+          return resource;
+        });
       }
     };
   }

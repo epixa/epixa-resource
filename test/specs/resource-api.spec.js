@@ -14,6 +14,10 @@ describe('epixa-resource', function() {
     $httpBackend.whenPOST('/foo').respond(201, {id:2, 'foo':'notbar'});
     $httpBackend.whenPOST('/with/pathfinder').respond(201, {id:1, 'something':'else'});
     $httpBackend.whenPOST('/500').respond(500);
+    $httpBackend.whenGET('/already-stored').respond(200, {id:1, 'foo':'notbar'});
+    $httpBackend.whenPUT('/already-stored').respond(200, {id:1, 'foo':'bar'});
+    $httpBackend.whenPUT('/not-yet-stored').respond(200, {id:1, 'foo':'bar'});
+    $httpBackend.whenPUT('/422').respond(422);
   }));
 
   describe('resource-api', function() {
@@ -177,34 +181,73 @@ describe('epixa-resource', function() {
     });
 
     describe('.put()', function() {
+      beforeEach(function() {
+        api.put('/already-stored', {foo: 'notbar'});
+      });
+      afterEach(function() {
+        $httpBackend.verifyNoOutstandingExpectation();
+      });
+      it('sends PUT request to the given path', function() {
+        $httpBackend.expectPUT('/already-stored', {foo: 'notbar'});
+      });
       describe('returned promise', function() {
         describe('when PUT request fails', function() {
-          it('is rejected with http error');
-        });
-      });
-      describe('when given a path as the first argument', function() {
-        it('sends PUT request to that path');
-        describe('returned promise', function() {
-          describe('when PUT request is successful', function() {
-            it('is resolved with resource');
-            describe('resolved resource', function() {
-              it('is stored for subsequent calls to .get() for that resource');
-              describe('.$path', function() {
-                it('is set to given path');
-                it('is populated with http response body');
-              });
-            });
+          var promise;
+          beforeEach(function() {
+            promise = api.put('/422');
+            $httpBackend.flush();
+          });
+          it('is rejected with http error', function() {
+            expect(getRejectedValue(promise)).toBeHttpError();
           });
         });
       });
-      describe('when given a resource as the first argument', function() {
-        it('sends normalized resource data in PUT request to resource.$path');
+      describe('when given a path that already has been stored', function() {
+        var resource, promise;
+        beforeEach(function() {
+          resource = api.get('/already-stored');
+          $httpBackend.flush(); // ensure it is stored
+          promise = api.put('/already-stored', {foo: 'bar'});
+          $httpBackend.flush();
+        });
         describe('returned promise', function() {
-          describe('when PUT request is successful', function() {
-            it('is resolved with the given resource');
-            describe('given resource', function() {
-              it('is extended with properties from PUT response body');
-              it('is stored for subsequent calls to .get() for that resource');
+          it('is fulfilled by the stored resource', function() {
+            expect(getResolvedValue(promise)).toBe(resource);
+          });
+        });
+        describe('stored resource', function() {
+          it('is updated with http response', function() {
+            expect(resource.foo).toBe('bar');
+          });
+        });
+      });
+      describe('when given a path that has not been stored', function() {
+        var promise;
+        beforeEach(function() {
+          promise = api.put('/not-yet-stored', {foo: 'bar'});
+          $httpBackend.flush();
+        });
+        describe('returned promise', function() {
+          it('is fulfilled with resource', function() {
+            expect(getResolvedValue(promise)).toBeResource();
+          });
+          describe('resolved resource', function() {
+            var resource;
+            beforeEach(function() {
+              resource = getResolvedValue(promise);
+              api.get('/not-yet-stored');
+              resolveAll();
+            });
+            it('is stored for future reuqests for the same $path', function() {
+              $httpBackend.verifyNoOutstandingRequest();
+            });
+            describe('.$path', function() {
+              it('is set to given path', function() {
+                expect(resource.$path).toBe('/not-yet-stored');
+              });
+              it('is populated with http response body', function() {
+                expect(resource.id).toBe(1);
+              });
             });
           });
         });
