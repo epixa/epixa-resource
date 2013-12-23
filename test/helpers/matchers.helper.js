@@ -37,11 +37,11 @@ beforeEach(function() {
       };
       return property in actual;
     },
-    toBeHttpError: function() {
+    toBeHttpResponse: function() {
       var actual = this.actual;
       var notText = this.isNot ? " not" : "";
       this.message = function() {
-        return "Expected " + JSON.stringify(actual) + notText + " to be an http error";
+        return "Expected " + JSON.stringify(actual) + notText + " to be an http response";
       };
       return actual.hasOwnProperty('data') && actual.hasOwnProperty('status') && actual.hasOwnProperty('headers');
     }

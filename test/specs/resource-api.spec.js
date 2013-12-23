@@ -66,7 +66,7 @@ describe('epixa-resource', function() {
             });
             describe('.$promise', function() {
               it('is rejected with http error', function() {
-                expect(getRejectedValue(resource.$promise)).toBeHttpError();
+                expect(getRejectedValue(resource.$promise)).toBeHttpResponse();
               });
             });
           });
@@ -121,7 +121,7 @@ describe('epixa-resource', function() {
           });
           describe('.$promise', function() {
             it('is rejected with http error', function() {
-              expect(getRejectedValue(resource.$promise)).toBeHttpError();
+              expect(getRejectedValue(resource.$promise)).toBeHttpResponse();
             });
           });
         });
@@ -198,7 +198,7 @@ describe('epixa-resource', function() {
             $httpBackend.flush();
           });
           it('is rejected with http error', function() {
-            expect(getRejectedValue(promise)).toBeHttpError();
+            expect(getRejectedValue(promise)).toBeHttpResponse();
           });
         });
       });
