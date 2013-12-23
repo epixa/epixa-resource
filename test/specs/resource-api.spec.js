@@ -8,7 +8,6 @@ describe('epixa-resource', function() {
     $rootScope = $injector.get('$rootScope');
     $httpBackend = $injector.get('$httpBackend');
 
-    var maxFooId = 2;
     $httpBackend.whenGET('/foo/1').respond({ id:1, 'foo':'bar' });
     $httpBackend.whenGET('/404').respond(404);
 
