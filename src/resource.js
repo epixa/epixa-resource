@@ -36,7 +36,7 @@ eResource.factory('resource-api', [
     }
     return {
       defaults: defaults,
-      get: function get(path, config) {
+      get: function getResource(path, config) {
         var resource = cache.retrieve(path);
         if (!resource) {
           config = initConfig(config);
@@ -46,7 +46,7 @@ eResource.factory('resource-api', [
         }
         return resource;
       },
-      post: function post(path, data, config) {
+      post: function postResource(path, data, config) {
         config = initConfig(config);
         var pathfinder = (config.pathfinder ? config.pathfinder : defaults.pathfinder).bind(null, path);
         var promise = $http.post(httpPath(config.transformPath, path), data, config).then(extractData);
@@ -54,7 +54,7 @@ eResource.factory('resource-api', [
         resource.$promise = resource.$promise.then(cache.store);
         return resource;
       },
-      put: function put(path, data, config) {
+      put: function putResource(path, data, config) {
         config = initConfig(config);
         var promise = $http.put(httpPath(config.transformPath, path), data, config).then(extractData);
         return resourceFactory(path, promise, config.initializer).$promise.then(function(resource) {
@@ -68,7 +68,7 @@ eResource.factory('resource-api', [
           return resource;
         });
       },
-      delete: function(path, config) {
+      delete: function deleteResource(path, config) {
         config = initConfig(config);
         return $http.delete(httpPath(config.transformPath, path), config).then(function(response) {
           cache.remove(path);
