@@ -212,6 +212,24 @@ describe('epixa-resource', function() {
         });
       });
     });
+    describe('when given an init function as the third argument', function() {
+      var resource, initSpy;
+      beforeEach(function() {
+        initSpy = jasmine.createSpy('init');
+        resource = factory('/foo', {}, initSpy);
+      });
+      it('does nothing with the function initially', function() {
+        expect(initSpy).not.toHaveBeenCalled();
+      });
+      describe('returned resource', function() {
+        describe('when .$promise resolves', function() {
+          beforeEach(resolveAll.bind(this));
+          it('is passed to the init function', function() {
+            expect(initSpy).toHaveBeenCalledWith(resource);
+          });
+        });
+      });
+    });
   });
 
   function resolveAll() {

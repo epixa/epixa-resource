@@ -23,6 +23,11 @@ describe('epixa-resource', function() {
     $httpBackend.whenGET('/thing-to-delete').respond(200);
     $httpBackend.whenDELETE('/thing-to-delete').respond(202);
     $httpBackend.whenDELETE('/422').respond(422);
+
+    $httpBackend.whenGET('/with/path/transformers').respond(200);
+    $httpBackend.whenPOST('/with/path/transformers').respond(200, { id: 1 });
+    $httpBackend.whenPUT('/with/path/transformers').respond(200);
+    $httpBackend.whenDELETE('/with/path/transformers').respond(200);
   }));
 
   describe('resource-api', function() {
@@ -32,9 +37,10 @@ describe('epixa-resource', function() {
     }));
 
     describe('.get()', function() {
-      var resource;
+      var resource, initSpy;
       beforeEach(function() {
-        resource = api.get('/foo/1');
+        initSpy = jasmine.createSpy('initializer');
+        resource = api.get('/foo/1', { initializer: initSpy });
       });
       afterEach(function() {
         $httpBackend.verifyNoOutstandingExpectation();
@@ -76,6 +82,50 @@ describe('epixa-resource', function() {
             });
           });
         });
+        describe('when given an initializer function in the config (second argument)', function() {
+          describe('returned resource', function() {
+            describe('when .$promise resolves', function() {
+              beforeEach(function() {
+                $httpBackend.flush();
+                resolveAll();
+              });
+              it('is passed to the initializer function', function() {
+                expect(initSpy).toHaveBeenCalledWith(resource);
+              });
+            });
+          });
+        });
+        describe('when given an array of path transformers in the config (second argument)', function() {
+          var resource, pathSpy, transformersSpy;
+          beforeEach(function() {
+            pathSpy = jasmine.createSpy('path').andReturn('/path/transformers');
+            transformersSpy = jasmine.createSpy('transformers').andReturn('/with/path/transformers');
+            resource = api.get('/transformers', { transformPath: [ pathSpy, transformersSpy ] });
+          });
+          afterEach(function() {
+            $httpBackend.verifyNoOutstandingExpectation();
+          });
+          it('passes the accumulative path to each transformer function', function() {
+            expect(pathSpy).toHaveBeenCalledWith('/transformers');
+            expect(transformersSpy).toHaveBeenCalledWith('/path/transformers');
+          });
+          it('decorates the http path in the array order', function() {
+            $httpBackend.expectGET('/with/path/transformers');
+          });
+          describe('returned resource', function() {
+            describe('.$path', function() {
+              describe('when http request completes', function() {
+                beforeEach(function() {
+                  $httpBackend.flush();
+                  resolveAll();
+                });
+                it('is not affected', function() {
+                  expect(resource.$path).toBe('/transformers');
+                });
+              });
+            });
+          });
+        });
       });
       describe('when that path has previously been seen', function() {
         var newResource;
@@ -94,9 +144,10 @@ describe('epixa-resource', function() {
     });
 
     describe('.post()', function() {
-      var resource;
+      var resource, initSpy;
       beforeEach(function() {
-        resource = api.post('/foo', { foo: 'notbar' });
+        initSpy = jasmine.createSpy('initializer');
+        resource = api.post('/foo', { foo: 'notbar' }, { initializer: initSpy });
       });
       afterEach(function() {
         $httpBackend.verifyNoOutstandingExpectation();
@@ -155,11 +206,24 @@ describe('epixa-resource', function() {
           });
         });
       });
-      describe('when given a custom pathfinder function as the third argument', function() {
+      describe('when given an initializer function in the config (third argument)', function() {
+        describe('returned resource', function() {
+          describe('when .$promise resolves', function() {
+            beforeEach(function() {
+              $httpBackend.flush();
+              resolveAll();
+            });
+            it('is passed to the initializer function', function() {
+              expect(initSpy).toHaveBeenCalledWith(resource);
+            });
+          });
+        });
+      });
+      describe('when given a custom pathfinder in the config (third argument)', function() {
         var pathfinder;
         beforeEach(function() {
           pathfinder = jasmine.createSpy('pathfinder').andReturn('/custom/pathfinder');
-          resource = api.post('/with/pathfinder', { foo: 'notbar' }, pathfinder);
+          resource = api.post('/with/pathfinder', { foo: 'notbar' }, {pathfinder: pathfinder});
         });
         describe('returned resource', function() {
           describe('.$path', function() {
@@ -178,6 +242,37 @@ describe('epixa-resource', function() {
                 it('is called with given path and returned resource', function() {
                   expect(pathfinder).toHaveBeenCalledWith('/with/pathfinder', resource);
                 });
+              });
+            });
+          });
+        });
+      });
+      describe('when given an array of path transformers in the config (third argument)', function() {
+        var resource, pathSpy, transformersSpy;
+        beforeEach(function() {
+          pathSpy = jasmine.createSpy('path').andReturn('/path/transformers');
+          transformersSpy = jasmine.createSpy('transformers').andReturn('/with/path/transformers');
+          resource = api.post('/transformers', {}, { transformPath: [ pathSpy, transformersSpy ] });
+        });
+        afterEach(function() {
+          $httpBackend.verifyNoOutstandingExpectation();
+        });
+        it('passes the accumulative path to each transformer function', function() {
+          expect(pathSpy).toHaveBeenCalledWith('/transformers');
+          expect(transformersSpy).toHaveBeenCalledWith('/path/transformers');
+        });
+        it('decorates the http path in the array order', function() {
+          $httpBackend.expectPOST('/with/path/transformers');
+        });
+        describe('returned resource', function() {
+          describe('.$path', function() {
+            describe('when http request completes', function() {
+              beforeEach(function() {
+                $httpBackend.flush();
+                resolveAll();
+              });
+              it('is not affected', function() {
+                expect(resource.$path).toBe('/transformers/1');
               });
             });
           });
@@ -257,6 +352,57 @@ describe('epixa-resource', function() {
           });
         });
       });
+      describe('when given an initializer function in the config (third argument)', function() {
+        var promise, initSpy;
+        beforeEach(function() {
+          initSpy = jasmine.createSpy('initializer');
+          promise = api.put('/not-yet-stored', {foo: 'bar'}, {initializer: initSpy});
+          $httpBackend.flush();
+        });
+        describe('returned promise', function() {
+          describe('resolved resource', function() {
+            var resource;
+            beforeEach(function() {
+              resource = getResolvedValue(promise);
+            });
+            it('is passed to the initializer function', function() {
+              expect(initSpy).toHaveBeenCalledWith(resource);
+            });
+          });
+        });
+      });
+      describe('when given an array of path transformers in the config (third argument)', function() {
+        var promise, pathSpy, transformersSpy;
+        beforeEach(function() {
+          pathSpy = jasmine.createSpy('path').andReturn('/path/transformers');
+          transformersSpy = jasmine.createSpy('transformers').andReturn('/with/path/transformers');
+          promise = api.put('/transformers', {}, { transformPath: [ pathSpy, transformersSpy ] });
+        });
+        afterEach(function() {
+          $httpBackend.verifyNoOutstandingExpectation();
+        });
+        it('passes the accumulative path to each transformer function', function() {
+          expect(pathSpy).toHaveBeenCalledWith('/transformers');
+          expect(transformersSpy).toHaveBeenCalledWith('/path/transformers');
+        });
+        it('decorates the http path in the array order', function() {
+          $httpBackend.expectPUT('/with/path/transformers');
+        });
+        describe('returned promise', function() {
+          describe('resolved resource', function() {
+            var resource;
+            beforeEach(function() {
+              $httpBackend.flush();
+              resource = getResolvedValue(promise);
+            });
+            describe('.$path', function() {
+              it('is not affected', function() {
+                expect(resource.$path).toBe('/transformers');
+              });
+            });
+          });
+        });
+      });
     });
 
     describe('.delete()', function() {
@@ -291,25 +437,43 @@ describe('epixa-resource', function() {
           });
         });
       });
-    });
-    describe('when path matches the .$path of a stored resource', function() {
-      var promise;
-      beforeEach(function() {
-        api.get('/thing-to-delete'); // ensure the thing is stored before delete
-        promise = api.delete('/thing-to-delete');
-        $httpBackend.flush();
+      describe('when path matches the .$path of a stored resource', function() {
+        var promise;
+        beforeEach(function() {
+          api.get('/thing-to-delete'); // ensure the thing is stored before delete
+          promise = api.delete('/thing-to-delete');
+          $httpBackend.flush();
+        });
+        describe('stored resource', function() {
+          describe('when returned promise resolves', function() {
+            beforeEach(function() {
+              api.get('/thing-to-delete');
+            });
+            afterEach(function() {
+              $httpBackend.verifyNoOutstandingExpectation();
+            });
+            it('is removed from cache so future requests to that resource do fire an http request', function() {
+              $httpBackend.expectGET('/thing-to-delete');
+            });
+          });
+        });
       });
-      describe('stored resource', function() {
-        describe('when returned promise resolves', function() {
-          beforeEach(function() {
-            api.get('/thing-to-delete');
-          });
-          afterEach(function() {
-            $httpBackend.verifyNoOutstandingExpectation();
-          });
-          it('is removed from cache so future requests to that resource do fire an http request', function() {
-            $httpBackend.expectGET('/thing-to-delete');
-          });
+      describe('when given an array of path transformers in the config (second argument)', function() {
+        var pathSpy, transformersSpy;
+        beforeEach(function() {
+          pathSpy = jasmine.createSpy('path').andReturn('/path/transformers');
+          transformersSpy = jasmine.createSpy('transformers').andReturn('/with/path/transformers');
+          api.delete('/transformers', { transformPath: [ pathSpy, transformersSpy ] });
+        });
+        afterEach(function() {
+          $httpBackend.verifyNoOutstandingExpectation();
+        });
+        it('passes the accumulative path to each transformer function', function() {
+          expect(pathSpy).toHaveBeenCalledWith('/transformers');
+          expect(transformersSpy).toHaveBeenCalledWith('/path/transformers');
+        });
+        it('decorates the http path in the array order', function() {
+          $httpBackend.expectDELETE('/with/path/transformers');
         });
       });
     });

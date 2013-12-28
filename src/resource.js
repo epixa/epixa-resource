@@ -5,31 +5,59 @@ var eResource = angular.module('epixa-resource', []);
 eResource.factory('resource-api', [
   '$http', 'resource-cache', 'resource-factory',
   function($http, cache, resourceFactory){
+    var defaults = {
+      cache: false,
+      transformPath: [],
+      transformRequest: angular.copy($http.defaults.transformRequest),
+      transformResponse: angular.copy($http.defaults.transformResponse),
+      pathfinder: function defaultPathfinder(path, resource) {
+        return path.substring(path.lastIndexOf('/')) + '/' + resource.id;
+      }
+    };
+    var emptyConfig = {
+      transformPath: [],
+      transformRequest: [],
+      transformResponse: []
+    };
     function extractData(obj) {
       return obj.data;
     }
-    function defaultPathfinder(path, resource) {
-      return path.substring(path.lastIndexOf('/')) + '/' + resource.id;
+    function initConfig(config) {
+      config = angular.extend({}, emptyConfig, config);
+      config.transformPath.push.apply(config.transformPath, angular.copy(defaults.transformPath));
+      config.transformRequest.push.apply(config.transformRequest, angular.copy(defaults.transformRequest));
+      config.transformResponse.unshift.apply(config.transformResponse, angular.copy(defaults.transformResponse));
+      return config;
+    }
+    function httpPath(transformers, path) {
+      return transformers.reduce(function(path, fn) {
+        return fn(path);
+      }, path);
     }
     return {
+      defaults: defaults,
       get: function get(path, config) {
         var resource = cache.retrieve(path);
         if (!resource) {
-          resource = resourceFactory(path, $http.get(path, config).then(extractData));
+          config = initConfig(config);
+          var promise = $http.get(httpPath(config.transformPath, path), config).then(extractData);
+          resource = resourceFactory(path, promise, config.initializer);
           cache.store(resource);
         }
         return resource;
       },
-      post: function post(path, data, pathfinder, config) {
-        angular.isFunction(pathfinder) || (pathfinder = defaultPathfinder);
-        pathfinder = pathfinder.bind(null, path);
-        var resource = resourceFactory(pathfinder, $http.post(path, data, config).then(extractData));
+      post: function post(path, data, config) {
+        config = initConfig(config);
+        var pathfinder = (config.pathfinder ? config.pathfinder : defaults.pathfinder).bind(null, path);
+        var promise = $http.post(httpPath(config.transformPath, path), data, config).then(extractData);
+        var resource = resourceFactory(pathfinder, promise, config.initializer);
         resource.$promise = resource.$promise.then(cache.store);
         return resource;
       },
       put: function put(path, data, config) {
-        var promise = $http.put(path, data, config).then(extractData);
-        return resourceFactory(path, promise).$promise.then(function(resource) {
+        config = initConfig(config);
+        var promise = $http.put(httpPath(config.transformPath, path), data, config).then(extractData);
+        return resourceFactory(path, promise, config.initializer).$promise.then(function(resource) {
           var storedResource = cache.retrieve(resource.$path);
           if (storedResource) {
             return promise.then(function(data) {
@@ -41,7 +69,8 @@ eResource.factory('resource-api', [
         });
       },
       delete: function(path, config) {
-        return $http.delete(path, config).then(function(response) {
+        config = initConfig(config);
+        return $http.delete(httpPath(config.transformPath, path), config).then(function(response) {
           cache.remove(path);
           return response;
         });
@@ -113,7 +142,12 @@ eResource.factory('resource-factory', [
       return resource;
     }
 
-    return function resourceFactory(path, data) {
+    function initialize(init, resource) {
+      init(resource);
+      return resource;
+    }
+
+    return function resourceFactory(path, data, init) {
       angular.isDefined(path) || (path = null);
       angular.isDefined(data) || (data = {});
 
@@ -154,6 +188,10 @@ eResource.factory('resource-factory', [
         });
       } else if (angular.isString(path)) {
         resource.$path = path;
+      }
+
+      if (angular.isFunction(init)) {
+        resource.$promise = resource.$promise.then(initialize.bind(null, init));
       }
 
       resource.$promise = resource.$promise.then(markAsLoaded);
