@@ -178,12 +178,48 @@ describe('epixa-resource', function() {
           $httpBackend.flush();
           newCollection = api.query('/foo');
           resolveAll();
+          collection.remove(collection.resources[0]);
+          collection.add({$path:'/foo/not-1', foo:'bar'});
+          collection.get('/foo/2').foo = 'somethingelse';
         });
         it('does not fire a GET request to that path', function() {
           $httpBackend.verifyNoOutstandingRequest();
         });
         it('returns the exact same collection object (not just the same data) as was previous seen', function() {
           expect(newCollection).toBe(collection);
+        });
+        describe('when given a reload flag in the config (second argument)', function() {
+          beforeEach(function() {
+            api.query('/foo', {reload: true});
+          });
+          it('fires off a GET request to that path', function() {
+            $httpBackend.expectGET('/foo');
+          });
+          describe('stored collection', function() {
+            describe('when GET request is successful', function() {
+              beforeEach(function() {
+                $httpBackend.flush();
+                resolveAll();
+              });
+              it('has any new resources from http response', function() {
+                var found = collection.resources.some(function(resource) {
+                  return resource.$path === '/foo/1';
+                });
+                expect(found).toBe(true);
+              });
+              it('has no resources that were absent from the response', function() {
+                var found = collection.resources.some(function(resource) {
+                  return resource.$path === '/foo/not-1';
+                });
+                expect(found).toBe(false);
+              });
+              describe('resource in collection', function() {
+                it('is extended with http response', function() {
+                  expect(collection.get('/foo/2').foo).toBe('notbar');
+                });
+              });
+            });
+          });
         });
       });
     });

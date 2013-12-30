@@ -50,13 +50,19 @@ eResource.factory('resource-api', [
     return {
       defaults: defaults,
       query: function queryResources(path, config) {
+        config = initConfig(config);
         var collection = cache.retrieve(path);
+        if (collection && !config.reload) {
+          return collection;
+        }
+        var pathfinder = (config.pathfinder ? config.pathfinder : defaults.pathfinder).bind(null, path);
+        var promise = $http.get(httpPath(config.transformPath, path), config).then(extractData);
+        var newCollection = collectionFactory(path, promise, pathfinder, config.initializer);
         if (!collection) {
-          config = initConfig(config);
-          var pathfinder = (config.pathfinder ? config.pathfinder : defaults.pathfinder).bind(null, path);
-          var promise = $http.get(httpPath(config.transformPath, path), config).then(extractData);
-          collection = cache.store(collectionFactory(path, promise, pathfinder, config.initializer));
+          collection = cache.store(newCollection);
           collection.$promise = collection.$promise.then(syncResourcesWithCache);
+        } else {
+          newCollection.$promise.then(collection.sync.bind(collection)).then(syncResourcesWithCache);
         }
         return collection;
       },
