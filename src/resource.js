@@ -207,6 +207,75 @@ eResource.factory('resource-factory', [
   }]
 );
 
+eResource.factory('collection-factory', [
+  '$q', 'resource-factory',
+  function($q, resourceFactory) {
+    var CollectionPrototype = {
+      get length () {
+        return this.resources.length;
+      },
+      add: function add(resource) {
+        this.resources.push(resource);
+        this.index[resource.$path] = this.resources.lastIndexOf(resource);
+      },
+      get: function get(path) {
+        return this.resources[this.index[path]];
+      },
+      filter: function filter(fn) {
+        var matchedResources = [];
+        this.resources.forEach(function(resource){
+          if (fn(resource) === true) {
+            matchedResources.push(resource);
+          }
+        });
+        matchedResources.forEach(this.remove.bind(this));
+      },
+      remove: function remove(resource){
+        var reindexing = false;
+        angular.forEach(this.index, function(key, path){
+          if (reindexing) {
+            this.index[path] = key - 1;
+          } else if (path == resource.$path) {
+            reindexing = true;
+            delete this.index[path];
+            this.resources.splice(key, 1);
+          }
+        }, this);
+      }
+    };
+
+    function markAsLoaded(collection) {
+      collection.$loaded = true;
+      return collection;
+    }
+
+    function populateCollection(collection, pathfinder, init, entities) {
+      entities.forEach(function(entity) {
+        collection.add(resourceFactory(pathfinder(entity), entity, init));
+      });
+      return collection;
+    }
+
+    return function collectionFactory(path, data, pathfinder, init) {
+      angular.isDefined(path) || (path = null);
+      angular.isDefined(data) || (data = []);
+
+      var collection = Object.create(CollectionPrototype, {
+        $path: { value: path },
+        $loaded: { value: false, writable: true },
+        $promise: { value: $q.when(data), writable: true },
+        resources: { value: [] },
+        index: { value: {} }
+      });
+
+      var populate = populateCollection.bind(null, collection, pathfinder, init);
+      collection.$promise = collection.$promise.then(populate).then(markAsLoaded);
+
+      return collection;
+    };
+  }]
+);
+
 function isThenable(obj) {
   return obj && angular.isFunction(obj.then);
 }
