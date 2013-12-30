@@ -85,13 +85,17 @@ describe('epixa-resource', function() {
       describe('.$extend()', function() {
         var returnedValue;
         beforeEach(function() {
-          returnedValue = resource.$extend({ $path: '/foo', foo: 'bar' });
+          resource.$proxy('something', angular.identity.bind(null, 'notelse'));
+          returnedValue = resource.$extend({ $path: '/foo', foo: 'bar', something: 'else' });
         });
         it('extends the resource with properties on the given object', function() {
           expect(resource.foo).toBe('bar');
         });
         it('ignores properties that begin with a $ (dollar sign)', function() {
           expect(resource.$path).toBe(null);
+        });
+        it('ignores properties that have previously been proxied', function() {
+          expect(resource.something).toBe('notelse');
         });
         it('provides a fluent interface (return itself)', function() {
           expect(returnedValue).toBe(resource);

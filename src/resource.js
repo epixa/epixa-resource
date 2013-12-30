@@ -132,6 +132,7 @@ eResource.factory('resource-factory', [
     function extendResource(resource, data) {
       angular.forEach(angular.extend({}, data), function(val, key) {
         if (key[0] === '$') return;
+        if (key in resource.$proxies) return;
         resource[key] = val;
       });
       return resource;
