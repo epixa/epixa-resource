@@ -3,8 +3,8 @@
 var eResource = angular.module('epixa-resource', []);
 
 eResource.factory('resource-api', [
-  '$http', 'resource-cache', 'resource-factory',
-  function($http, cache, resourceFactory){
+  '$http', 'resource-cache', 'resource-factory', 'collection-factory',
+  function($http, cache, resourceFactory, collectionFactory){
     var defaults = {
       cache: false,
       transformPath: [],
@@ -34,8 +34,31 @@ eResource.factory('resource-api', [
         return fn(path);
       }, path);
     }
+    function syncResourcesWithCache(collection) {
+      collection.resources.forEach(function(resource, index, resources) {
+        var storedResource = cache.retrieve(resource.$path);
+        if (storedResource) {
+          resources[index] = storedResource;
+          storedResource.$extend(resource);
+        } else {
+          cache.store(resource);
+        }
+      });
+      return collection;
+    };
     return {
       defaults: defaults,
+      query: function queryResources(path, config) {
+        var collection = cache.retrieve(path);
+        if (!collection) {
+          config = initConfig(config);
+          var pathfinder = (config.pathfinder ? config.pathfinder : defaults.pathfinder).bind(null, path);
+          var promise = $http.get(httpPath(config.transformPath, path), config).then(extractData);
+          collection = cache.store(collectionFactory(path, promise, pathfinder, config.initializer));
+          collection.$promise = collection.$promise.then(syncResourcesWithCache);
+        }
+        return collection;
+      },
       get: function getResource(path, config) {
         var resource = cache.retrieve(path);
         if (!resource) {

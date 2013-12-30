@@ -8,6 +8,8 @@ describe('epixa-resource', function() {
     $rootScope = $injector.get('$rootScope');
     $httpBackend = $injector.get('$httpBackend');
 
+    $httpBackend.whenGET('/foo').respond(200, [{id:1,foo:'bar'},{id:2,foo:'notbar'}]);
+
     $httpBackend.whenGET('/foo/1').respond({ id:1, 'foo':'bar' });
     $httpBackend.whenGET('/404').respond(404);
 
@@ -35,6 +37,156 @@ describe('epixa-resource', function() {
     beforeEach(inject(function($injector) {
       api = $injector.get('resource-api');
     }));
+
+    describe('.query()', function() {
+      var collection, storedResource, initSpy, pathfinderSpy;
+      beforeEach(function() {
+        initSpy = jasmine.createSpy('initializer');
+        pathfinderSpy = jasmine.createSpy('pathfinder').andCallFake(function(collectionPath, entity) {
+          return collectionPath + '/' + entity.id;
+        });
+        storedResource = api.get('/foo/1'); // make sure it is stored in cache already
+        $httpBackend.flush();
+        resolveAll();
+        collection = api.query('/foo', { initializer: initSpy, pathfinder: pathfinderSpy });
+      });
+      afterEach(function() {
+        $httpBackend.verifyNoOutstandingExpectation();
+      });
+      describe('returned collection', function() {
+        describe('.$path', function() {
+          it('is equivalent to given path', function() {
+            expect(collection.$path).toBe('/foo');
+          });
+        });
+      });
+      describe('when that path has not been seen before', function() {
+        it('fires off a GET request to that path', function() {
+          $httpBackend.expectGET('/foo');
+        });
+        describe('returned collection', function() {
+          describe('when GET request is successful', function() {
+            beforeEach(function() {
+              $httpBackend.flush();
+            });
+            it('is populated with resources from response data', function() {
+              expect(collection.resources.length).toBe(2);
+            });
+            describe('.$promise', function() {
+              it('is resolved with collection', function() {
+                expect(getResolvedValue(collection.$promise)).toBe(collection);
+              });
+            });
+          });
+          describe('when GET request fails', function() {
+            beforeEach(function() {
+              collection = api.query('/404');
+              $httpBackend.flush();
+            });
+            describe('.$promise', function() {
+              it('is rejected with http error', function() {
+                expect(getRejectedValue(collection.$promise)).toBeHttpResponse();
+              });
+            });
+          });
+        });
+        describe('when given an initializer function in the config (second argument)', function() {
+          describe('initializer function', function() {
+            it('is not called immediately', function() {
+              expect(initSpy).not.toHaveBeenCalled();
+            });
+            describe('when .$promise resolves', function() {
+              beforeEach(function() {
+                $httpBackend.flush();
+                resolveAll();
+              });
+              it('is called for each resource in the collection', function() {
+                expect(initSpy.calls.length).toBe(2);
+              });
+              it('is passed the resource', function(){
+                expect(initSpy).toHaveBeenCalledWith(collection.resources[0]);
+                expect(initSpy).toHaveBeenCalledWith(collection.resources[1]);
+              });
+            });
+          });
+        });
+        describe('when given a pathfinder function in the config (second argument)', function() {
+          it('is not called immediately', function() {
+            expect(pathfinderSpy).not.toHaveBeenCalled();
+          });
+          describe('when .$promise resolves', function() {
+            beforeEach(function() {
+              $httpBackend.flush();
+              resolveAll();
+            });
+            it('is called for each resource in the collection', function() {
+              expect(pathfinderSpy.calls.length).toBe(2);
+            });
+            it('is called with the original entity data and collection path for each resource', function(){
+              expect(pathfinderSpy).toHaveBeenCalledWith('/foo', {id:1,foo:'bar'});
+              expect(pathfinderSpy).toHaveBeenCalledWith('/foo', {id:2,foo:'notbar'});
+            });
+            describe('resource in collection', function() {
+              describe('.$path', function() {
+                it('is set to the result of the pathfinder', function() {
+                  expect(collection.resources[0].$path).toBe('/foo/1');
+                  expect(collection.resources[1].$path).toBe('/foo/2');
+                });
+              });
+              describe('when already stored', function() {
+                it('is identical to already stored resource (not just the same data)', function() {
+                  expect(collection.resources[0]).toBe(storedResource);
+                });
+              });
+              describe('when not already stored', function() {
+                it('is stored for future requests', function() {
+                  expect(collection.resources[1]).toBe(api.get('/foo/2'));
+                });
+              });
+            });
+          });
+        });
+        describe('when given an array of path transformers in the config (second argument)', function() {
+          var collection, firstSpy, secondSpy;
+          beforeEach(function() {
+            firstSpy = jasmine.createSpy('pathTransformer1').andReturn('/notfoo');
+            secondSpy = jasmine.createSpy('pathTransformer2').andReturn('/foo');
+            collection = api.query('/transformers', { transformPath: [ firstSpy, secondSpy ] });
+          });
+          afterEach(function() {
+            $httpBackend.verifyNoOutstandingExpectation();
+          });
+          it('passes the accumulative path to each transformer function', function() {
+            expect(firstSpy).toHaveBeenCalledWith('/transformers');
+            expect(secondSpy).toHaveBeenCalledWith('/notfoo');
+          });
+          it('decorates the http path in the array order', function() {
+            $httpBackend.expectGET('/foo');
+          });
+          describe('returned collection', function() {
+            describe('.$path', function() {
+              it('is the same as original given path', function() {
+                expect(collection.$path).toBe('/transformers');
+              });
+            });
+          });
+        });
+      });
+      describe('when that path has previously been seen', function() {
+        var newCollection;
+        beforeEach(function() {
+          $httpBackend.flush();
+          newCollection = api.query('/foo');
+          resolveAll();
+        });
+        it('does not fire a GET request to that path', function() {
+          $httpBackend.verifyNoOutstandingRequest();
+        });
+        it('returns the exact same collection object (not just the same data) as was previous seen', function() {
+          expect(newCollection).toBe(collection);
+        });
+      });
+    });
 
     describe('.get()', function() {
       var resource, initSpy;
