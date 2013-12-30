@@ -10,10 +10,11 @@ describe('epixa-resource', function() {
   }));
 
   describe('collection-factory()', function() {
-    var factory, mockResource;
+    var factory, resourceFactory, mockResource;
     beforeEach(inject(function($injector) {
       factory = $injector.get('collection-factory');
-      mockResource = { $path: '/foo/1' };
+      resourceFactory = $injector.get('resource-factory');
+      mockResource = resourceFactory('/foo/1');
     }));
 
     describe('returned collection', function() {
@@ -140,6 +141,54 @@ describe('epixa-resource', function() {
         it('preserves index/resource mapping', function() {
           expect(collection.index['/foo/bar']).toBe(0);
           expect(collection.index['/foo/2']).toBe(1);
+        });
+      });
+
+      describe('.sync()', function() {
+        var newCollection;
+        beforeEach(function() {
+          collection.add(resourceFactory('/foo/1', {foo:'bar'}));
+          newCollection = factory(null, [], angular.noop);
+          newCollection.add(resourceFactory('/foo/1', {foo:'somethingelse'}));
+          newCollection.add(resourceFactory('/foo/2'));
+          newCollection.add(resourceFactory('/foo/3'));
+          collection.sync(newCollection);
+        });
+        describe('when given a collection that has different resource paths', function() {
+          it('adds all resources not in existing collection', function() {
+            expect(collection.get('/foo/2')).toBeDefined();
+          });
+          it('removes all resources not in given collection', function() {
+            expect(collection.get('/foo/bar')).toBeUndefined();
+          });
+          it('updates any existing resources in existing that are also in the given collection', function() {
+            expect(collection.get('/foo/1').foo).toBe('somethingelse');
+          });
+        });
+        xdescribe('stored collection', function() {
+          describe('when GET request is successful', function() {
+            beforeEach(function() {
+              $httpBackend.flush();
+              resolveAll();
+            });
+            it('has any new resources from http response', function() {
+              var found = collection.resources.some(function(resource) {
+                return resource.$path === '/foo/1';
+              });
+              expect(found).toBe(true);
+            });
+            it('has no resources that were absent from the response', function() {
+              var found = collection.resources.some(function(resource) {
+                return resource.$path === '/foo/not-1';
+              });
+              expect(found).toBe(false);
+            });
+            describe('resource in collection', function() {
+              it('is extended with http response', function() {
+                expect(collection.get('/foo/2').foo).toBe('notbar');
+              });
+            });
+          });
         });
       });
 

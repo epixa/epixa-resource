@@ -269,6 +269,21 @@ eResource.factory('collection-factory', [
             this.resources.splice(key, 1);
           }
         }, this);
+      },
+      sync: function sync(givenCollection) {
+        var currentCollection = this;
+        givenCollection.resources.forEach(function(resource) {
+          var existingResource = currentCollection.get(resource.$path);
+          if (!existingResource) {
+            currentCollection.add(resource);
+          } else {
+            existingResource.$extend(resource);
+          }
+        });
+        currentCollection.filter(function(resource) {
+          return !(resource.$path in givenCollection.index);
+        });
+        return currentCollection;
       }
     };
 
