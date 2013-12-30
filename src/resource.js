@@ -24,6 +24,7 @@ eResource.factory('resource-api', [
     }
     function initConfig(config) {
       config = angular.extend({}, emptyConfig, config);
+      config.cache = false;
       config.transformPath.push.apply(config.transformPath, angular.copy(defaults.transformPath));
       config.transformRequest.push.apply(config.transformRequest, angular.copy(defaults.transformRequest));
       config.transformResponse.unshift.apply(config.transformResponse, angular.copy(defaults.transformResponse));
@@ -60,12 +61,16 @@ eResource.factory('resource-api', [
         return collection;
       },
       get: function getResource(path, config) {
+        config = initConfig(config);
         var resource = cache.retrieve(path);
         if (!resource) {
-          config = initConfig(config);
           var promise = $http.get(httpPath(config.transformPath, path), config).then(extractData);
           resource = resourceFactory(path, promise, config.initializer);
           cache.store(resource);
+        } else if (config.reload) {
+          $http.get(httpPath(config.transformPath, path), config).then(extractData).then(function(entity) {
+            resource.$extend(entity);
+          });
         }
         return resource;
       },

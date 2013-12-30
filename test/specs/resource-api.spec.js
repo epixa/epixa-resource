@@ -292,6 +292,25 @@ describe('epixa-resource', function() {
         it('returns the exact same resource object (not just the same data) as was previous seen', function() {
           expect(newResource).toBe(resource);
         });
+        describe('when given a reload flag in the config (second argument)', function() {
+          beforeEach(function() {
+            resource.foo = 'notbar';
+            api.get('/foo/1', {reload: true});
+          });
+          it('fires off a GET request to that path', function() {
+            $httpBackend.expectGET('/foo/1');
+          });
+          describe('stored resource', function() {
+            describe('when GET request is successful', function() {
+              beforeEach(function() {
+                $httpBackend.flush();
+              });
+              it('is extended by http response body', function() {
+                expect(resource.foo).toBe('bar');
+              });
+            });
+          });
+        });
       });
     });
 
