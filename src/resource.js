@@ -23,7 +23,7 @@ eResource.factory('resource-api', [
       return obj.data;
     }
     function initConfig(config) {
-      config = angular.extend({}, emptyConfig, config);
+      config = angular.extend(angular.copy(emptyConfig), config);
       config.cache = false;
       config.transformPath.push.apply(config.transformPath, angular.copy(defaults.transformPath));
       config.transformRequest.push.apply(config.transformRequest, angular.copy(defaults.transformRequest));

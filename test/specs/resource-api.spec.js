@@ -315,6 +315,24 @@ describe('epixa-resource', function() {
           });
         });
       });
+      describe('when default path transformers are configured', function() {
+        var pathSpy;
+        beforeEach(function() {
+          pathSpy = jasmine.createSpy('path').andReturn('/with/path/transformers');
+          api.defaults.transformPath.push(pathSpy);
+        });
+        describe('default path transformers', function() {
+          describe('when multiple http requests are made', function() {
+            beforeEach(function() {
+              api.get('/transformers', { reload: true });
+              api.get('/transformers', { reload: true });
+            });
+            it('are only invoked once per request', function() {
+              expect(pathSpy.calls.length).toBe(2);
+            });
+          });
+        });
+      });
       describe('when that path has previously been seen', function() {
         var newResource;
         beforeEach(function() {
