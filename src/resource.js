@@ -3,8 +3,8 @@
 var eResource = angular.module('epixa-resource', []);
 
 eResource.factory('resource-api', [
-  '$http', 'resource-cache', 'resource-factory', 'collection-factory',
-  function($http, cache, resourceFactory, collectionFactory){
+  '$http', '$q', 'resource-cache', 'resource-factory', 'collection-factory',
+  function($http, $q, cache, resourceFactory, collectionFactory){
     var defaults = {
       cache: false,
       transformPath: [],
@@ -49,20 +49,39 @@ eResource.factory('resource-api', [
     };
     return {
       defaults: defaults,
-      query: function queryResources(path, config) {
-        config = initConfig(config);
-        var collection = cache.retrieve(path);
-        if (collection && !config.reload) {
-          return collection;
+      reload: function reloadResource(resource, config) {
+        if (resource.$reloading) {
+          return resource.$reloading;
         }
-        var pathfinder = (config.pathfinder ? config.pathfinder : defaults.pathfinder).bind(null, path);
-        var promise = $http.get(httpPath(config.transformPath, path), config).then(extractData);
-        var newCollection = collectionFactory(path, promise, pathfinder, config.initializer);
-        if (!collection) {
-          collection = cache.store(newCollection);
-          collection.$promise = collection.$promise.then(syncResourcesWithCache);
+        var deferred = $q.defer();
+        resource.$reloading = deferred.promise;
+
+        config = initConfig(config);
+        var reload = $http.get(httpPath(config.transformPath, resource.$path), config).then(extractData);
+        if (isCollection(resource)) {
+          var pathfinder = (config.pathfinder ? config.pathfinder : defaults.pathfinder).bind(null, resource.$path);
+          reload = collectionFactory(resource.$path, reload, pathfinder, config.initializer).$promise
+            .then(resource.sync.bind(resource))
+            .then(syncResourcesWithCache);
         } else {
-          newCollection.$promise.then(collection.sync.bind(collection)).then(syncResourcesWithCache);
+          reload = reload.then(resource.$extend.bind(resource));
+        }
+        reload.then(function() {
+          resource.$reloading = false;
+          deferred.resolve(resource);
+        });
+
+        return resource.$reloading;
+      },
+      query: function queryResources(path, config) {
+        var collection = cache.retrieve(path);
+        if (!collection) {
+          config = initConfig(config);
+          var pathfinder = (config.pathfinder ? config.pathfinder : defaults.pathfinder).bind(null, path);
+          var promise = $http.get(httpPath(config.transformPath, path), config).then(extractData);
+          collection = collectionFactory(path, promise, pathfinder, config.initializer);
+          cache.store(collection);
+          collection.$promise = collection.$promise.then(syncResourcesWithCache);
         }
         return collection;
       },
@@ -73,10 +92,6 @@ eResource.factory('resource-api', [
           var promise = $http.get(httpPath(config.transformPath, path), config).then(extractData);
           resource = resourceFactory(path, promise, config.initializer);
           cache.store(resource);
-        } else if (config.reload) {
-          $http.get(httpPath(config.transformPath, path), config).then(extractData).then(function(entity) {
-            resource.$extend(entity);
-          });
         }
         return resource;
       },
@@ -325,6 +340,9 @@ eResource.factory('collection-factory', [
   }]
 );
 
+function isCollection(obj) {
+  return obj && angular.isArray(obj.resources) && isThenable(obj.$promise);
+}
 function isThenable(obj) {
   return obj && angular.isFunction(obj.then);
 }

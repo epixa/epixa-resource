@@ -38,6 +38,181 @@ describe('epixa-resource', function() {
       api = $injector.get('resource-api');
     }));
 
+    describe('.reload()', function() {
+      var resource, collection;
+      beforeEach(function() {
+        resource = api.get('/foo/1');
+        collection = api.query('/foo');
+        $httpBackend.flush();
+        resolveAll();
+      });
+      afterEach(function() {
+        $httpBackend.verifyNoOutstandingExpectation();
+      });
+      describe('when given a resource', function() {
+        var promise;
+        beforeEach(function() {
+          promise = api.reload(resource);
+        });
+        it('fires off a GET request to the given resource.$path', function() {
+          $httpBackend.expectGET(resource.$path);
+        });
+        describe('given resource', function() {
+          beforeEach(function() {
+            collection.foo = 'notbar';
+          });
+          describe('when GET request is successful', function() {
+            beforeEach(function() {
+              $httpBackend.flush(1);
+              resolveAll();
+            });
+            it('is extended by http response body', function() {
+              expect(resource.foo).toBe('bar');
+            });
+          });
+        });
+        describe('returned promise', function() {
+          describe('when resolved', function() {
+            beforeEach(function() {
+              $httpBackend.flush(1);
+            });
+            it('is fulfilled with original resource object', function() {
+              expect(getResolvedValue(promise)).toBe(resource);
+            });
+          });
+        });
+        describe('that is already reloading', function() {
+          var alreadyReloading;
+          beforeEach(function() {
+            alreadyReloading = api.reload(resource);
+            $httpBackend.flush(1);
+          });
+          it('does not fire off a new GET request for the given resource', function() {
+            $httpBackend.verifyNoOutstandingRequest();
+          });
+          describe('returned promise', function() {
+            it('is the same object as from the original .reload() call', function() {
+              expect(alreadyReloading).toBe(promise);
+            });
+          });
+        });
+      });
+      describe('when given a collection', function() {
+        var promise;
+        beforeEach(function() {
+          promise = api.reload(collection);
+        });
+        it('fires off a GET request to the given collection.$path', function() {
+          $httpBackend.expectGET(collection.$path);
+        });
+        describe('given collection', function() {
+          beforeEach(function() {
+            collection.remove(collection.resources[0]);
+            collection.add({$path:'/foo/not-1', foo:'bar'});
+            collection.get('/foo/2').foo = 'somethingelse';
+          });
+          describe('when GET request is successful', function() {
+            beforeEach(function() {
+              $httpBackend.flush(1);
+              resolveAll();
+            });
+            it('has any new resources from http response', function() {
+              var found = collection.resources.some(function(resource) {
+                return resource.$path === '/foo/1';
+              });
+              expect(found).toBe(true);
+            });
+            it('has no resources that were absent from the response', function() {
+              var found = collection.resources.some(function(resource) {
+                return resource.$path === '/foo/not-1';
+              });
+              expect(found).toBe(false);
+            });
+            describe('resource in collection', function() {
+              it('is extended with http response', function() {
+                expect(collection.get('/foo/2').foo).toBe('notbar');
+              });
+            });
+          });
+        });
+        describe('returned promise', function() {
+          describe('when resolved', function() {
+            beforeEach(function() {
+              $httpBackend.flush(1);
+            });
+            it('is fulfilled with original collection object', function() {
+              expect(getResolvedValue(promise)).toBe(collection);
+            });
+          });
+        });
+        describe('that is already reloading', function() {
+          var alreadyReloading;
+          beforeEach(function() {
+            alreadyReloading = api.reload(collection);
+            $httpBackend.flush(1);
+          });
+          it('does not fire off a new GET request for the given collection', function() {
+            $httpBackend.verifyNoOutstandingRequest();
+          });
+          describe('returned promise', function() {
+            it('is the same object as from the original .reload() call', function() {
+              expect(alreadyReloading).toBe(promise);
+            });
+          });
+        });
+        describe('when given an initializer function in the config (second argument)', function() {
+          var initSpy;
+          beforeEach(function() {
+            $httpBackend.flush();
+            initSpy = jasmine.createSpy('initializer');
+            api.reload(collection, { initializer: initSpy });
+          });
+          describe('initializer function', function() {
+            it('is not called immediately', function() {
+              expect(initSpy).not.toHaveBeenCalled();
+            });
+            describe('when promise resolves', function() {
+              beforeEach(function() {
+                $httpBackend.flush();
+              });
+              it('is called for each resource in the collection', function() {
+                expect(initSpy.calls.length).toBe(2);
+              });
+              it('is passed the resource', function(){
+                expect(initSpy).toHaveBeenCalledWith(collection.resources[0]);
+                expect(initSpy).toHaveBeenCalledWith(collection.resources[1]);
+              });
+            });
+          });
+        });
+        describe('when given a pathfinder function in the config (second argument)', function() {
+          var pathfinderSpy;
+          beforeEach(function() {
+            $httpBackend.flush();
+            pathfinderSpy = jasmine.createSpy('pathfinder').andCallFake(function(collectionPath, entity) {
+              return collectionPath + '/' + entity.id;
+            });
+            api.reload(collection, { pathfinder: pathfinderSpy });
+          });
+          it('is not called immediately', function() {
+            expect(pathfinderSpy).not.toHaveBeenCalled();
+          });
+          describe('when promise resolves', function() {
+            beforeEach(function() {
+              $httpBackend.flush();
+            });
+            it('is called for each resource in the collection', function() {
+              expect(pathfinderSpy.calls.length).toBe(2);
+            });
+            it('is called with the original entity data and collection path for each resource', function(){
+              expect(pathfinderSpy).toHaveBeenCalledWith('/foo', {id:1,foo:'bar'});
+              expect(pathfinderSpy).toHaveBeenCalledWith('/foo', {id:2,foo:'notbar'});
+            });
+          });
+        });
+      });
+    });
+
     describe('.query()', function() {
       var collection, storedResource, initSpy, pathfinderSpy;
       beforeEach(function() {
@@ -188,39 +363,6 @@ describe('epixa-resource', function() {
         it('returns the exact same collection object (not just the same data) as was previous seen', function() {
           expect(newCollection).toBe(collection);
         });
-        describe('when given a reload flag in the config (second argument)', function() {
-          beforeEach(function() {
-            api.query('/foo', {reload: true});
-          });
-          it('fires off a GET request to that path', function() {
-            $httpBackend.expectGET('/foo');
-          });
-          describe('stored collection', function() {
-            describe('when GET request is successful', function() {
-              beforeEach(function() {
-                $httpBackend.flush();
-                resolveAll();
-              });
-              it('has any new resources from http response', function() {
-                var found = collection.resources.some(function(resource) {
-                  return resource.$path === '/foo/1';
-                });
-                expect(found).toBe(true);
-              });
-              it('has no resources that were absent from the response', function() {
-                var found = collection.resources.some(function(resource) {
-                  return resource.$path === '/foo/not-1';
-                });
-                expect(found).toBe(false);
-              });
-              describe('resource in collection', function() {
-                it('is extended with http response', function() {
-                  expect(collection.get('/foo/2').foo).toBe('notbar');
-                });
-              });
-            });
-          });
-        });
       });
     });
 
@@ -316,16 +458,16 @@ describe('epixa-resource', function() {
         });
       });
       describe('when default path transformers are configured', function() {
-        var pathSpy;
+        var pathSpy, resource;
         beforeEach(function() {
           pathSpy = jasmine.createSpy('path').andReturn('/with/path/transformers');
           api.defaults.transformPath.push(pathSpy);
+          resource = api.get('/transformers');
         });
         describe('default path transformers', function() {
-          describe('when multiple http requests are made', function() {
+          describe('when multiple http requests are attempted', function() {
             beforeEach(function() {
-              api.get('/transformers', { reload: true });
-              api.get('/transformers', { reload: true });
+              api.reload(resource);
             });
             it('are only invoked once per request', function() {
               expect(pathSpy.calls.length).toBe(2);
@@ -345,25 +487,6 @@ describe('epixa-resource', function() {
         });
         it('returns the exact same resource object (not just the same data) as was previous seen', function() {
           expect(newResource).toBe(resource);
-        });
-        describe('when given a reload flag in the config (second argument)', function() {
-          beforeEach(function() {
-            resource.foo = 'notbar';
-            api.get('/foo/1', {reload: true});
-          });
-          it('fires off a GET request to that path', function() {
-            $httpBackend.expectGET('/foo/1');
-          });
-          describe('stored resource', function() {
-            describe('when GET request is successful', function() {
-              beforeEach(function() {
-                $httpBackend.flush();
-              });
-              it('is extended by http response body', function() {
-                expect(resource.foo).toBe('bar');
-              });
-            });
-          });
         });
       });
     });
