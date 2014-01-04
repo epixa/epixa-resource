@@ -43,15 +43,35 @@ describe('epixa-resource', function() {
       beforeEach(function() {
         resource = api.get('/foo/1');
         collection = api.query('/foo');
-        $httpBackend.flush();
-        resolveAll();
       });
       afterEach(function() {
         $httpBackend.verifyNoOutstandingExpectation();
       });
-      describe('when given a resource', function() {
+      describe('when given a resource that is not yet .$loaded', function() {
         var promise;
         beforeEach(function() {
+          promise = api.reload(resource);
+          $httpBackend.flush(2);
+        });
+        it('does not fire off a new GET request for that resource', function() {
+          $httpBackend.verifyNoOutstandingRequest();
+        });
+      });
+      describe('when given a collection that is not yet .$loaded', function() {
+        var promise;
+        beforeEach(function() {
+          promise = api.reload(collection);
+          $httpBackend.flush(2);
+        });
+        it('does not fire off a new GET request for that collection', function() {
+          $httpBackend.verifyNoOutstandingRequest();
+        });
+      });
+      describe('when given an already loaded resource', function() {
+        var promise;
+        beforeEach(function() {
+          $httpBackend.flush();
+          resolveAll();
           promise = api.reload(resource);
         });
         it('fires off a GET request to the given resource.$path', function() {
@@ -97,9 +117,11 @@ describe('epixa-resource', function() {
           });
         });
       });
-      describe('when given a collection', function() {
+      describe('when given an already loaded collection', function() {
         var promise;
         beforeEach(function() {
+          $httpBackend.flush();
+          resolveAll();
           promise = api.reload(collection);
         });
         it('fires off a GET request to the given collection.$path', function() {
@@ -467,6 +489,7 @@ describe('epixa-resource', function() {
         describe('default path transformers', function() {
           describe('when multiple http requests are attempted', function() {
             beforeEach(function() {
+              $httpBackend.flush();
               api.reload(resource);
             });
             it('are only invoked once per request', function() {

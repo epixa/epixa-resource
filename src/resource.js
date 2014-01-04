@@ -67,7 +67,6 @@ eResource.factory('resource-api', [
           reload = reload.then(resource.$extend.bind(resource));
         }
         reload.then(function() {
-          resource.$reloading = false;
           deferred.resolve(resource);
         });
 
@@ -82,6 +81,7 @@ eResource.factory('resource-api', [
           collection = collectionFactory(path, promise, pathfinder, config.initializer);
           cache.store(collection);
           collection.$promise = collection.$promise.then(syncResourcesWithCache);
+          collection.$reloading = collection.$promise;
         }
         return collection;
       },
@@ -92,6 +92,7 @@ eResource.factory('resource-api', [
           var promise = $http.get(httpPath(config.transformPath, path), config).then(extractData);
           resource = resourceFactory(path, promise, config.initializer);
           cache.store(resource);
+          resource.$reloading = resource.$promise;
         }
         return resource;
       },
@@ -197,12 +198,24 @@ eResource.factory('resource-factory', [
       return resource;
     }
 
+    function markAsNotReloading(resource) {
+      resource.$reloading = false;
+      return resource;
+    }
+
     return function resourceFactory(path, data, init) {
       angular.isDefined(path) || (path = null);
       angular.isDefined(data) || (data = {});
 
+      var reloading = false;
       var resource = Object.create(ResourcePrototype, {
-        $proxies: { value: {} }
+        $proxies: { value: {} },
+        $reloading: {
+          get: function() { return reloading; },
+          set: function(val) {
+            reloading = val ? val.then(markAsNotReloading, markAsNotReloading) : false;
+          }
+        }
       });
 
       if (!isThenable(data)) {
@@ -320,14 +333,26 @@ eResource.factory('collection-factory', [
       return collection;
     }
 
+    function markAsNotReloading(collection) {
+      collection.$reloading = false;
+      return collection;
+    }
+
     return function collectionFactory(path, data, pathfinder, init) {
       angular.isDefined(path) || (path = null);
       angular.isDefined(data) || (data = []);
 
+      var reloading = false;
       var collection = Object.create(CollectionPrototype, {
         $path: { value: path },
         $loaded: { value: false, writable: true },
         $promise: { value: $q.when(data), writable: true },
+        $reloading: {
+          get: function() { return reloading; },
+          set: function(val) {
+            reloading = val ? val.then(markAsNotReloading, markAsNotReloading) : false;
+          }
+        },
         resources: { value: [] },
         index: { value: {} }
       });
