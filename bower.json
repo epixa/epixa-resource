@@ -1,6 +1,6 @@
 {
   "name": "epixa-resource",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "An angular.js module for mapping http requests to/from defined model objects.",
   "keywords": [ "angular.js", "angular", "resource", "rest", "http", "api" ],
   "homepage": "https://github.com/epixa/epixa-resource",
