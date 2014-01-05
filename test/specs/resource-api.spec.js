@@ -264,10 +264,7 @@ describe('epixa-resource', function() {
             collection.$reload();
           });
           it('proxies to api.reload()', function() {
-            var args = api.reload.mostRecentCall.args;
-            expect(args[0]).toBe(collection);
-            expect(args[1].initializer).toBe(initSpy);
-            expect(args[1].pathfinder).toBe(pathfinderSpy);
+            expect(api.reload).toHaveBeenCalledWith(collection, config);
           });
         });
       });
@@ -401,10 +398,11 @@ describe('epixa-resource', function() {
     });
 
     describe('.get()', function() {
-      var resource, initSpy;
+      var resource, initSpy, config;
       beforeEach(function() {
         initSpy = jasmine.createSpy('initializer');
-        resource = api.get('/foo/1', { initializer: initSpy });
+        config = { initializer: initSpy };
+        resource = api.get('/foo/1', config);
       });
       afterEach(function() {
         $httpBackend.verifyNoOutstandingExpectation();
@@ -427,9 +425,7 @@ describe('epixa-resource', function() {
               resource.$reload();
             });
             it('proxies to api.reload()', function() {
-              var args = api.reload.mostRecentCall.args;
-              expect(args[0]).toBe(resource);
-              expect(args[1].initializer).toBe(initSpy);
+              expect(api.reload).toHaveBeenCalledWith(resource, config);
             });
           });
           describe('when GET request is successful', function() {
@@ -538,10 +534,11 @@ describe('epixa-resource', function() {
     });
 
     describe('.post()', function() {
-      var resource, initSpy;
+      var resource, initSpy, config;
       beforeEach(function() {
         initSpy = jasmine.createSpy('initializer');
-        resource = api.post('/foo', { foo: 'notbar' }, { initializer: initSpy });
+        config = { initializer: initSpy };
+        resource = api.post('/foo', { foo: 'notbar' }, config);
       });
       afterEach(function() {
         $httpBackend.verifyNoOutstandingExpectation();
@@ -570,9 +567,7 @@ describe('epixa-resource', function() {
             resource.$reload();
           });
           it('proxies to api.reload()', function() {
-            var args = api.reload.mostRecentCall.args;
-            expect(args[0]).toBe(resource);
-            expect(args[1].initializer).toBe(initSpy);
+            expect(api.reload).toHaveBeenCalledWith(resource, config);
           });
         });
         describe('when POST request fails', function() {
@@ -727,10 +722,11 @@ describe('epixa-resource', function() {
         });
       });
       describe('when given a path that has not been stored', function() {
-        var promise, initSpy;
+        var promise, initSpy, config;
         beforeEach(function() {
           initSpy = jasmine.createSpy('initializer');
-          promise = api.put('/not-yet-stored', {foo: 'bar'}, {initializer: initSpy});
+          config = {initializer: initSpy};
+          promise = api.put('/not-yet-stored', {foo: 'bar'}, config);
           $httpBackend.flush();
         });
         describe('returned promise', function() {
@@ -761,9 +757,7 @@ describe('epixa-resource', function() {
                 resource.$reload();
               });
               it('proxies to api.reload()', function() {
-                var args = api.reload.mostRecentCall.args;
-                expect(args[0]).toBe(resource);
-                expect(args[1].initializer).toBe(initSpy);
+                expect(api.reload).toHaveBeenCalledWith(resource, config);
               });
             });
           });

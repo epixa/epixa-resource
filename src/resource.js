@@ -39,19 +39,19 @@ eResource.factory('resource-api', [
           cache.store(collection);
           collection.$promise = collection.$promise.then(syncResourcesWithCache);
           collection.$reloading = collection.$promise;
-          collection.$reload = reloadResource.bind(null, collection, config);
+          collection.$reload = reloadResource.bind(null, collection, config.$original);
         }
         return collection;
       },
       get: function getResource(path, config) {
-        config = initConfig(config);
         var resource = cache.retrieve(path);
         if (!resource) {
+          config = initConfig(config);
           var promise = $http.get(httpPath(config.transformPath, path), config).then(extractData);
           resource = resourceFactory(path, promise, config.initializer);
           cache.store(resource);
           resource.$reloading = resource.$promise;
-          resource.$reload = reloadResource.bind(null, resource, config);
+          resource.$reload = reloadResource.bind(null, resource, config.$original);
         }
         return resource;
       },
@@ -62,7 +62,7 @@ eResource.factory('resource-api', [
         var resource = resourceFactory(pathfinder, promise, config.initializer);
         resource.$promise = resource.$promise.then(cache.store);
         resource.$reloading = resource.$promise;
-        resource.$reload = reloadResource.bind(null, resource, config);
+        resource.$reload = reloadResource.bind(null, resource, config.$original);
         return resource;
       },
       put: function putResource(path, data, config) {
@@ -77,7 +77,7 @@ eResource.factory('resource-api', [
           }
           resource.$promise = resource.$promise.then(cache.store);
           resource.$reloading = resource.$promise;
-          resource.$reload = reloadResource.bind(null, resource, config);
+          resource.$reload = reloadResource.bind(null, resource, config.$original);
           return resource;
         });
       },
@@ -111,7 +111,8 @@ eResource.factory('resource-api', [
       return obj.data;
     }
     function initConfig(config) {
-      config = angular.extend(angular.copy(emptyConfig), config);
+      config = { $original: config };
+      angular.extend(config, angular.copy(emptyConfig), config.$original);
       config.cache = false;
       config.transformPath.push.apply(config.transformPath, angular.copy(api.defaults.transformPath));
       config.transformRequest.push.apply(config.transformRequest, angular.copy(api.defaults.transformRequest));
