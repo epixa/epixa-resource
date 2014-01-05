@@ -4,7 +4,7 @@ var eResource = angular.module('epixa-resource', []);
 
 eResource.factory('resource-api', [
   '$http', '$q', 'resource-cache', 'resource-factory', 'collection-factory',
-  function($http, $q, cache, resourceFactory, collectionFactory){
+  function($http, $q, cache, resourceFactory, collectionFactory) {
     var api = {
       reload: function reloadResource(resource, config) {
         if (resource.$reloading) {
@@ -17,7 +17,7 @@ eResource.factory('resource-api', [
         var reload = $http.get(httpPath(config.transformPath, resource.$path), config).then(extractData);
         if (isCollection(resource)) {
           var pathfinder = (config.pathfinder ? config.pathfinder : api.defaults.pathfinder).bind(null, resource.$path);
-          reload = collectionFactory(resource.$path, reload, pathfinder, config.initializer).$promise
+          reload = collectionFactory(resource.$path, reload, pathfinder, initializeResource.bind(null, config)).$promise
             .then(resource.sync.bind(resource))
             .then(syncResourcesWithCache);
         } else {
@@ -35,11 +35,11 @@ eResource.factory('resource-api', [
           config = initConfig(config);
           var pathfinder = (config.pathfinder ? config.pathfinder : api.defaults.pathfinder).bind(null, path);
           var promise = $http.get(httpPath(config.transformPath, path), config).then(extractData);
-          collection = collectionFactory(path, promise, pathfinder, config.initializer);
+          collection = collectionFactory(path, promise, pathfinder, initializeResource.bind(null, config));
           cache.store(collection);
           collection.$promise = collection.$promise.then(syncResourcesWithCache);
           collection.$reloading = collection.$promise;
-          collection.$reload = reloadResource.bind(null, collection, config.$original);
+          collection.$reload = reload.bind(null, collection, config.$original);
         }
         return collection;
       },
@@ -51,7 +51,7 @@ eResource.factory('resource-api', [
           resource = resourceFactory(path, promise, config.initializer);
           cache.store(resource);
           resource.$reloading = resource.$promise;
-          resource.$reload = reloadResource.bind(null, resource, config.$original);
+          resource.$reload = reload.bind(null, resource, config.$original);
         }
         return resource;
       },
@@ -62,13 +62,13 @@ eResource.factory('resource-api', [
         var resource = resourceFactory(pathfinder, promise, config.initializer);
         resource.$promise = resource.$promise.then(cache.store);
         resource.$reloading = resource.$promise;
-        resource.$reload = reloadResource.bind(null, resource, config.$original);
+        resource.$reload = reload.bind(null, resource, config.$original);
         return resource;
       },
       put: function putResource(path, data, config) {
         config = initConfig(config);
         var promise = $http.put(httpPath(config.transformPath, path), data, config).then(extractData);
-        return resourceFactory(path, promise, config.initializer).$promise.then(function(resource) {
+        return resourceFactory(path, promise, initializeResource.bind(null, config)).$promise.then(function(resource) {
           var storedResource = cache.retrieve(resource.$path);
           if (storedResource) {
             return promise.then(function(data) {
@@ -77,7 +77,6 @@ eResource.factory('resource-api', [
           }
           resource.$promise = resource.$promise.then(cache.store);
           resource.$reloading = resource.$promise;
-          resource.$reload = reloadResource.bind(null, resource, config.$original);
           return resource;
         });
       },
@@ -104,7 +103,11 @@ eResource.factory('resource-api', [
       transformRequest: [],
       transformResponse: []
     };
-    function reloadResource(resource, config) {
+    function initializeResource(config, resource) {
+      resource.$reload = reload.bind(null, resource, config.$original);
+      (config.initializer || angular.noop)(resource);
+    }
+    function reload(resource, config) {
       return api.reload(resource, config);
     }
     function extractData(obj) {
