@@ -19,6 +19,7 @@ describe('epixa-resource', function() {
 
     $httpBackend.whenGET('/already-stored').respond(200, {id:1, 'foo':'notbar'});
     $httpBackend.whenPUT('/already-stored').respond(200, {id:1, 'foo':'bar'});
+    $httpBackend.whenGET('/not-yet-stored').respond(200, {id:1, 'foo':'bar'});
     $httpBackend.whenPUT('/not-yet-stored').respond(200, {id:1, 'foo':'bar'});
     $httpBackend.whenPUT('/422').respond(422);
 
@@ -186,6 +187,7 @@ describe('epixa-resource', function() {
           var initSpy;
           beforeEach(function() {
             $httpBackend.flush();
+            collection.remove(collection.resources[1]);
             initSpy = jasmine.createSpy('initializer');
             api.reload(collection, { initializer: initSpy });
           });
@@ -197,11 +199,10 @@ describe('epixa-resource', function() {
               beforeEach(function() {
                 $httpBackend.flush();
               });
-              it('is called for each resource in the collection', function() {
-                expect(initSpy.calls.length).toBe(2);
+              it('is not called on existing resources', function() {
+                expect(initSpy).not.toHaveBeenCalledWith(collection.resources[0]);
               });
-              it('is passed the resource', function(){
-                expect(initSpy).toHaveBeenCalledWith(collection.resources[0]);
+              it('is called for new resources', function() {
                 expect(initSpy).toHaveBeenCalledWith(collection.resources[1]);
               });
             });
@@ -236,7 +237,7 @@ describe('epixa-resource', function() {
     });
 
     describe('.query()', function() {
-      var collection, storedResource, initSpy, pathfinderSpy;
+      var collection, config, storedResource, initSpy, pathfinderSpy;
       beforeEach(function() {
         initSpy = jasmine.createSpy('initializer');
         pathfinderSpy = jasmine.createSpy('pathfinder').andCallFake(function(collectionPath, entity) {
@@ -245,7 +246,8 @@ describe('epixa-resource', function() {
         storedResource = api.get('/foo/1'); // make sure it is stored in cache already
         $httpBackend.flush();
         resolveAll();
-        collection = api.query('/foo', { initializer: initSpy, pathfinder: pathfinderSpy });
+        config = { initializer: initSpy, pathfinder: pathfinderSpy };
+        collection = api.query('/foo', config);
       });
       afterEach(function() {
         $httpBackend.verifyNoOutstandingExpectation();
@@ -254,6 +256,18 @@ describe('epixa-resource', function() {
         describe('.$path', function() {
           it('is equivalent to given path', function() {
             expect(collection.$path).toBe('/foo');
+          });
+        });
+        describe('.$reload()', function() {
+          beforeEach(function() {
+            spyOn(api, 'reload').andCallThrough();
+            collection.$reload();
+          });
+          it('proxies to api.reload()', function() {
+            var args = api.reload.mostRecentCall.args;
+            expect(args[0]).toBe(collection);
+            expect(args[1].initializer).toBe(initSpy);
+            expect(args[1].pathfinder).toBe(pathfinderSpy);
           });
         });
       });
@@ -295,13 +309,11 @@ describe('epixa-resource', function() {
             describe('when .$promise resolves', function() {
               beforeEach(function() {
                 $httpBackend.flush();
-                resolveAll();
               });
-              it('is called for each resource in the collection', function() {
-                expect(initSpy.calls.length).toBe(2);
+              it('is not called on resources that have already been cached', function() {
+                expect(initSpy).not.toHaveBeenCalledWith(collection.resources[0]);
               });
-              it('is passed the resource', function(){
-                expect(initSpy).toHaveBeenCalledWith(collection.resources[0]);
+              it('is called for uncached resources', function() {
                 expect(initSpy).toHaveBeenCalledWith(collection.resources[1]);
               });
             });
@@ -409,6 +421,17 @@ describe('epixa-resource', function() {
           $httpBackend.expectGET('/foo/1');
         });
         describe('returned resource', function() {
+          describe('.$reload()', function() {
+            beforeEach(function() {
+              spyOn(api, 'reload').andCallThrough();
+              resource.$reload();
+            });
+            it('proxies to api.reload()', function() {
+              var args = api.reload.mostRecentCall.args;
+              expect(args[0]).toBe(resource);
+              expect(args[1].initializer).toBe(initSpy);
+            });
+          });
           describe('when GET request is successful', function() {
             beforeEach(function() {
               $httpBackend.flush();
@@ -539,6 +562,17 @@ describe('epixa-resource', function() {
             it('is set to <given-path>/<resource.id>', function() {
               expect(resource.$path).toBe('/foo/2');
             });
+          });
+        });
+        describe('.$reload()', function() {
+          beforeEach(function() {
+            spyOn(api, 'reload').andCallThrough();
+            resource.$reload();
+          });
+          it('proxies to api.reload()', function() {
+            var args = api.reload.mostRecentCall.args;
+            expect(args[0]).toBe(resource);
+            expect(args[1].initializer).toBe(initSpy);
           });
         });
         describe('when POST request fails', function() {
@@ -693,9 +727,10 @@ describe('epixa-resource', function() {
         });
       });
       describe('when given a path that has not been stored', function() {
-        var promise;
+        var promise, initSpy;
         beforeEach(function() {
-          promise = api.put('/not-yet-stored', {foo: 'bar'});
+          initSpy = jasmine.createSpy('initializer');
+          promise = api.put('/not-yet-stored', {foo: 'bar'}, {initializer: initSpy});
           $httpBackend.flush();
         });
         describe('returned promise', function() {
@@ -718,6 +753,17 @@ describe('epixa-resource', function() {
               });
               it('is populated with http response body', function() {
                 expect(resource.id).toBe(1);
+              });
+            });
+            describe('.$reload()', function() {
+              beforeEach(function() {
+                spyOn(api, 'reload').andCallThrough();
+                resource.$reload();
+              });
+              it('proxies to api.reload()', function() {
+                var args = api.reload.mostRecentCall.args;
+                expect(args[0]).toBe(resource);
+                expect(args[1].initializer).toBe(initSpy);
               });
             });
           });
