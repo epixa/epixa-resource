@@ -39,7 +39,7 @@ eResource.factory('resource-api', [
           cache.store(collection);
           collection.$promise = collection.$promise.then(syncResourcesWithCache);
           collection.$reloading = collection.$promise;
-          collection.$reload = reload.bind(null, collection, config.$original);
+          defineReloadFn(collection, config);
         }
         return collection;
       },
@@ -51,7 +51,7 @@ eResource.factory('resource-api', [
           resource = resourceFactory(path, promise, config.initializer);
           cache.store(resource);
           resource.$reloading = resource.$promise;
-          resource.$reload = reload.bind(null, resource, config.$original);
+          defineReloadFn(resource, config);
         }
         return resource;
       },
@@ -62,7 +62,7 @@ eResource.factory('resource-api', [
         var resource = resourceFactory(pathfinder, promise, config.initializer);
         resource.$promise = resource.$promise.then(cache.store);
         resource.$reloading = resource.$promise;
-        resource.$reload = reload.bind(null, resource, config.$original);
+        defineReloadFn(resource, config);
         return resource;
       },
       put: function putResource(path, data, config) {
@@ -98,14 +98,14 @@ eResource.factory('resource-api', [
       }
     };
 
-    var emptyConfig = {
-      transformPath: [],
-      transformRequest: [],
-      transformResponse: []
-    };
     function initializeResource(config, resource) {
-      resource.$reload = reload.bind(null, resource, config.$original);
+      defineReloadFn(resource, config);
       (config.initializer || angular.noop)(resource);
+    }
+    function defineReloadFn(resource, config) {
+      Object.defineProperty(resource, '$reload', {
+        value: reload.bind(null, resource, config.$original)
+      });
     }
     function reload(resource, config) {
       return api.reload(resource, config);
@@ -114,9 +114,14 @@ eResource.factory('resource-api', [
       return obj.data;
     }
     function initConfig(config) {
-      config = { $original: config };
-      angular.extend(config, angular.copy(emptyConfig), config.$original);
-      config.cache = false;
+      var original = angular.extend({}, config);
+      config = angular.extend({}, original, {
+        transformPath: original.transformPath ? angular.copy(original.transformPath) : [],
+        transformRequest: original.transformRequest ? angular.copy(original.transformRequest) : [],
+        transformResponse: original.transformResponse ? angular.copy(original.transformResponse) : [],
+        cache: false,
+        $original: original
+      });
       config.transformPath.push.apply(config.transformPath, angular.copy(api.defaults.transformPath));
       config.transformRequest.push.apply(config.transformRequest, angular.copy(api.defaults.transformRequest));
       config.transformResponse.unshift.apply(config.transformResponse, angular.copy(api.defaults.transformResponse));

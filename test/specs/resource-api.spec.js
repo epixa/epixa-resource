@@ -204,7 +204,9 @@ describe('epixa-resource', function() {
           beforeEach(function() {
             $httpBackend.flush();
             fooData.push({id:3, foo:'fooo'});
-            initSpy = jasmine.createSpy('initializer');
+            initSpy = jasmine.createSpy('initializer').andCallFake(function(resource) {
+              resource.initialized = true;
+            });
             api.reload(collection, { initializer: initSpy });
           });
           describe('initializer function', function() {
@@ -254,16 +256,23 @@ describe('epixa-resource', function() {
     });
 
     describe('.query()', function() {
-      var collection, config, storedResource, initSpy, pathfinderSpy;
+      var collection, config, storedResource, initSpy, pathfinderSpy, responseTransformer;
       beforeEach(function() {
-        initSpy = jasmine.createSpy('initializer');
+        responseTransformer = jasmine.createSpy('responseTransformer').andCallFake(function() {
+          var data = angular.copy(fooData);
+          data.push({id:4,foo:'foooo'});
+          return data;
+        });
+        initSpy = jasmine.createSpy('initializer').andCallFake(function(resource) {
+          resource.initialized = true;
+        });
         pathfinderSpy = jasmine.createSpy('pathfinder').andCallFake(function(collectionPath, entity) {
           return collectionPath + '/' + entity.id;
         });
         storedResource = api.get('/foo/1'); // make sure it is stored in cache already
         $httpBackend.flush();
         resolveAll();
-        config = { initializer: initSpy, pathfinder: pathfinderSpy };
+        config = { initializer: initSpy, pathfinder: pathfinderSpy, transformResponse: [ responseTransformer ] };
         collection = api.query('/foo', config);
       });
       afterEach(function() {
@@ -295,7 +304,7 @@ describe('epixa-resource', function() {
               $httpBackend.flush();
             });
             it('is populated with resources from response data', function() {
-              expect(collection.resources.length).toBe(2);
+              expect(collection.resources.length).toBe(3);
             });
             describe('.$promise', function() {
               it('is resolved with collection', function() {
@@ -343,7 +352,7 @@ describe('epixa-resource', function() {
               resolveAll();
             });
             it('is called for each resource in the collection', function() {
-              expect(pathfinderSpy.calls.length).toBe(2);
+              expect(pathfinderSpy.calls.length).toBe(3);
             });
             it('is called with the original entity data and collection path for each resource', function(){
               expect(pathfinderSpy).toHaveBeenCalledWith('/foo', {id:1,foo:'bar'});
@@ -394,6 +403,16 @@ describe('epixa-resource', function() {
             });
           });
         });
+        describe('when given an array of response transformers in the config (second argument)', function() {
+          describe('response transformer', function() {
+            beforeEach(function() {
+              $httpBackend.flush();
+            });
+            it('is called with response data', function() {
+              expect(responseTransformer.mostRecentCall.args[0]).toEqual(fooData);
+            });
+          });
+        });
       });
       describe('when that path has previously been seen', function() {
         var newCollection;
@@ -417,7 +436,9 @@ describe('epixa-resource', function() {
     describe('.get()', function() {
       var resource, initSpy, config;
       beforeEach(function() {
-        initSpy = jasmine.createSpy('initializer');
+        initSpy = jasmine.createSpy('initializer').andCallFake(function(resource) {
+          resource.initialized = true;
+        });
         config = { initializer: initSpy };
         resource = api.get('/foo/1', config);
       });
@@ -551,17 +572,24 @@ describe('epixa-resource', function() {
     });
 
     describe('.post()', function() {
-      var resource, initSpy, config;
+      var resource, initSpy, config, requestTransformer;
       beforeEach(function() {
-        initSpy = jasmine.createSpy('initializer');
-        config = { initializer: initSpy };
+        requestTransformer = jasmine.createSpy('requestTransformer').andCallFake(function(data) {
+          data = angular.copy(data);
+          data.transformed = true;
+          return data;
+        });
+        initSpy = jasmine.createSpy('initializer').andCallFake(function(resource) {
+          resource.initialized = true;
+        });
+        config = { initializer: initSpy, transformRequest: [requestTransformer] };
         resource = api.post('/foo', { foo: 'notbar' }, config);
       });
       afterEach(function() {
         $httpBackend.verifyNoOutstandingExpectation();
       });
       it('sends data object in POST request to the given path', function() {
-        $httpBackend.expectPOST('/foo', { foo: 'notbar' });
+        $httpBackend.expectPOST('/foo', { foo: 'notbar', transformed: true });
       });
       describe('returned resource', function() {
         describe('.$path', function() {
@@ -695,6 +723,16 @@ describe('epixa-resource', function() {
           });
         });
       });
+      describe('when given an array of request transformers in the config (third argument)', function() {
+        describe('request transformer', function() {
+          beforeEach(function() {
+            $httpBackend.flush();
+          });
+          it('is called with request data', function() {
+            expect(requestTransformer.mostRecentCall.args[0]).toEqual({ foo : 'notbar'});
+          });
+        });
+      });
     });
 
     describe('.put()', function() {
@@ -741,7 +779,9 @@ describe('epixa-resource', function() {
       describe('when given a path that has not been stored', function() {
         var promise, initSpy, config;
         beforeEach(function() {
-          initSpy = jasmine.createSpy('initializer');
+          initSpy = jasmine.createSpy('initializer').andCallFake(function(resource) {
+            resource.initialized = true;
+          });
           config = {initializer: initSpy};
           promise = api.put('/not-yet-stored', {foo: 'bar'}, config);
           $httpBackend.flush();
@@ -783,7 +823,9 @@ describe('epixa-resource', function() {
       describe('when given an initializer function in the config (third argument)', function() {
         var promise, initSpy;
         beforeEach(function() {
-          initSpy = jasmine.createSpy('initializer');
+          initSpy = jasmine.createSpy('initializer').andCallFake(function(resource) {
+            resource.initialized = true;
+          });
           promise = api.put('/not-yet-stored', {foo: 'bar'}, {initializer: initSpy});
           $httpBackend.flush();
         });
