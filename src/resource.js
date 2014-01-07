@@ -297,8 +297,10 @@ eResource.factory('collection-factory', [
         return this.resources.length;
       },
       add: function add(resource) {
-        this.resources.push(resource);
-        this.index[resource.$path] = this.resources.lastIndexOf(resource);
+        if (this.index[resource.$path] === undefined) {
+          this.resources.push(resource);
+          this.index[resource.$path] = this.resources.lastIndexOf(resource);
+        }
       },
       get: function get(path) {
         return this.resources[this.index[path]];

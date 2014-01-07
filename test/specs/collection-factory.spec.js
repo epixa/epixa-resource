@@ -80,8 +80,9 @@ describe('epixa-resource', function() {
         beforeEach(function() {
           resolveAll();
           collection.add(mockResource);
+          collection.add(mockResource);
         });
-        it('adds the given resource to the collection', function() {
+        it('adds the given resource only once to the collection', function() {
           expect(collection.length).toBe(2);
         });
       });
@@ -262,7 +263,7 @@ describe('epixa-resource', function() {
       beforeEach(function() {
         initSpy = jasmine.createSpy('initializer');
         entities = [{foo:'bar'},{foo:'notbar'}];
-        collection = factory('/foo', entities, angular.identity.bind(null, '/foo/1'), initSpy);
+        collection = factory('/foo', entities, function(entity) { return '/foo/' + entity.foo; }, initSpy);
       });
       describe('initializer function', function() {
         it('is not called immediately', function() {
