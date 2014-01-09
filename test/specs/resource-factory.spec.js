@@ -85,6 +85,7 @@ describe('epixa-resource', function() {
       describe('.$extend()', function() {
         var returnedValue;
         beforeEach(function() {
+          resource.something = 'else';
           resource.$proxy('something', angular.identity.bind(null, 'notelse'));
           returnedValue = resource.$extend({ $path: '/foo', foo: 'bar', something: 'else' });
         });
@@ -108,7 +109,6 @@ describe('epixa-resource', function() {
           proxyFoo = jasmine.createSpy('proxy-foo').andReturn('notbar');
           resource.foo = 'bar';
           resource.$proxy('foo', proxyFoo);
-          resource.$proxy('somethingelse', angular.noop);
         });
         it('does not call the custom function immediately', function() {
           expect(proxyFoo).not.toHaveBeenCalled();
@@ -121,8 +121,12 @@ describe('epixa-resource', function() {
           expect(resource.foo).toBe('notbar');
         });
         describe('when called for a property that does not exist', function() {
-          it('indexes the new property name as `undefined` on the $proxies object', function() {
-            expect(resource.$proxies.somethingelse).toBe(undefined);
+          var proxy;
+          beforeEach(function() {
+            proxy = function() { resource.$proxy('somethingelse', angular.noop) };
+          });
+          it('throws an error', function() {
+            expect(proxy).toThrow();
           });
         });
         describe('when called for a property that does exist', function() {

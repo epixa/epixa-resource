@@ -1,3 +1,4 @@
+// v0.4.3 https://github.com/epixa/epixa-resource
 (function(angular, undefined){'use strict';
 
 var eResource = angular.module('epixa-resource', []);
@@ -184,7 +185,10 @@ eResource.factory('resource-factory', [
   function($q) {
     var ResourcePrototype = {
       $proxy: function $proxy(property, fn) {
-        this.$proxies[property] = property in this ? this[property] : undefined;
+        if (!this[property]) {
+          throw new Error('Proxy of undefined/null for property ' + property);
+        }
+        this.$proxies[property] = this[property];
         var args = Array.prototype.slice.call(arguments, 2);
         Object.defineProperty(this, property, {
           configurable: true,
