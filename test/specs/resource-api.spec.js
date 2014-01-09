@@ -820,6 +820,17 @@ describe('epixa-resource', function() {
           });
         });
       });
+      describe('when given a data object with $proxies', function() {
+        beforeEach(function() {
+          api.put('/not-yet-stored', {foo: 'notbar', bar: {}, $proxies: {bar: 'notfoo'}});
+        });
+        afterEach(function() {
+          $httpBackend.verifyNoOutstandingExpectation();
+        });
+        it('sends the original value of the proxied property in the http request', function() {
+          $httpBackend.expectPUT('/not-yet-stored', {foo: 'notbar', bar: 'notfoo'});
+        });
+      });
       describe('when given an initializer function in the config (third argument)', function() {
         var promise, initSpy;
         beforeEach(function() {

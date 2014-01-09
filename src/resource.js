@@ -67,6 +67,13 @@ eResource.factory('resource-api', [
       },
       put: function putResource(path, data, config) {
         config = initConfig(config);
+        if (data && angular.isObject(data.$proxies)) {
+          var proxies = data.$proxies;
+          data = angular.extend({}, data);
+          angular.forEach(proxies, function(url, property) {
+            data[property] = url;
+          });
+        }
         var promise = $http.put(httpPath(config.transformPath, path), data, config).then(extractData);
         return resourceFactory(path, promise, initializeResource.bind(null, config)).$promise.then(function(resource) {
           var storedResource = cache.retrieve(resource.$path);
