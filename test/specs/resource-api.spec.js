@@ -19,6 +19,7 @@ describe('epixa-resource', function() {
     $httpBackend.whenPOST('/with/pathfinder').respond(201, {id:1, 'something':'else'});
     $httpBackend.whenPOST('/500').respond(500);
 
+    $httpBackend.whenPOST('/stored').respond(201, {id:1, 'foo':'bar'});
     $httpBackend.whenGET('/already-stored').respond(200, {id:1, 'foo':'notbar'});
     $httpBackend.whenPUT('/already-stored').respond(200, {id:1, 'foo':'bar'});
     $httpBackend.whenGET('/not-yet-stored').respond(200, {id:1, 'foo':'bar'});
@@ -572,18 +573,20 @@ describe('epixa-resource', function() {
     });
 
     describe('.post()', function() {
-      var resource, initSpy, config, requestTransformer;
+      var promise, initSpy, config, requestTransformer;
       beforeEach(function() {
         requestTransformer = jasmine.createSpy('requestTransformer').andCallFake(function(data) {
-          data = angular.copy(data);
-          data.transformed = true;
+          if (angular.isObject(data)) {
+            data = angular.copy(data);
+            data.transformed = true;
+          }
           return data;
         });
         initSpy = jasmine.createSpy('initializer').andCallFake(function(resource) {
           resource.initialized = true;
         });
         config = { initializer: initSpy, transformRequest: [requestTransformer] };
-        resource = api.post('/foo', { foo: 'notbar' }, config);
+        promise = api.post('/foo', { foo: 'notbar' }, config);
       });
       afterEach(function() {
         $httpBackend.verifyNoOutstandingExpectation();
@@ -591,38 +594,22 @@ describe('epixa-resource', function() {
       it('sends data object in POST request to the given path', function() {
         $httpBackend.expectPOST('/foo', { foo: 'notbar', transformed: true });
       });
-      describe('returned resource', function() {
-        describe('.$path', function() {
-          it('is null', function() {
-            expect(resource.$path).toBe(null);
-          });
-          describe('when .$promise resolves', function() {
-            beforeEach(function() {
-              $httpBackend.flush();
-              resolveAll();
-            });
-            it('is set to <given-path>/<resource.id>', function() {
-              expect(resource.$path).toBe('/foo/2');
-            });
-          });
-        });
-        describe('.$reload()', function() {
+      describe('returned promise', function() {
+        describe('when resolved after a resource with the same path was already retrieved', function() {
+          var cachedResource, resource;
           beforeEach(function() {
-            spyOn(api, 'reload').andCallThrough();
-            resource.$reload();
-          });
-          it('proxies to api.reload()', function() {
-            expect(api.reload).toHaveBeenCalledWith(resource, config);
-          });
-        });
-        describe('when POST request fails', function() {
-          beforeEach(function() {
-            resource = api.post('/500');
+            cachedResource = api.get('/already-stored');
             $httpBackend.flush();
+            promise = api.post('/stored', {}, {pathfinder:angular.identity.bind(null, '/already-stored')});
+            $httpBackend.flush();
+            resource = getResolvedValue(promise);
           });
-          describe('.$promise', function() {
-            it('is rejected with http error', function() {
-              expect(getRejectedValue(resource.$promise)).toBeHttpResponse();
+          describe('resolved resource', function() {
+            it('is the same exact object as the one that was already cached', function() {
+              expect(resource).toBe(cachedResource);
+            });
+            it('is extended by POST request response body', function() {
+              expect(resource.foo).toBe('bar');
             });
           });
         });
@@ -631,73 +618,95 @@ describe('epixa-resource', function() {
             $httpBackend.flush();
             resolveAll();
           });
-          it('is extended by POST request response body', function() {
-            expect(resource.foo).toBe('notbar');
+          it('is resolved with the resource', function() {
+            expect(getResolvedValue(promise)).toBeResource();
           });
-          describe('.$promise', function() {
-            it('is resolved with the resource', function() {
-              expect(getResolvedValue(resource.$promise)).toBe(resource);
+          describe('resolved resource', function() {
+            var resource;
+            beforeEach(function() {
+              resource = getResolvedValue(promise);
+            });
+            it('is extended by POST request response body', function() {
+              expect(resource.foo).toBe('notbar');
+            });
+            describe('.$path', function() {
+              it('is set to <given-path>/<resource.id>', function() {
+                expect(resource.$path).toBe('/foo/2');
+              });
+            });
+            describe('.$promise', function() {
+              it('is resolved with the resource', function() {
+                expect(getResolvedValue(resource.$promise)).toBe(resource);
+              });
+            });
+            describe('.$reload()', function() {
+              beforeEach(function() {
+                spyOn(api, 'reload').andCallThrough();
+                resource.$reload();
+              });
+              it('proxies to api.reload()', function() {
+                expect(api.reload).toHaveBeenCalledWith(resource, config);
+              });
+            });
+          });
+          describe('when resolved', function() {
+            beforeEach(function() {
+              api.get('/foo/2');
+            });
+            it('stores resource in cache for subsequent api calls', function() {
+              $httpBackend.verifyNoOutstandingRequest();
             });
           });
         });
-        describe('when .$promise resolves', function() {
+        describe('when POST request fails', function() {
           beforeEach(function() {
+            promise = api.post('/500');
             $httpBackend.flush();
-            api.get('/foo/2');
-            resolveAll();
           });
-          it('is stored so subsequent calls to .get() for that resource do not fire a new request', function() {
-            $httpBackend.verifyNoOutstandingRequest();
+          it('is rejected with http error', function() {
+            expect(getRejectedValue(promise)).toBeHttpResponse();
           });
         });
       });
       describe('when given an initializer function in the config (third argument)', function() {
-        describe('returned resource', function() {
-          describe('when .$promise resolves', function() {
-            beforeEach(function() {
-              $httpBackend.flush();
-              resolveAll();
-            });
-            it('is passed to the initializer function', function() {
-              expect(initSpy).toHaveBeenCalledWith(resource);
-            });
+        describe('initializer function', function() {
+          var resource;
+          beforeEach(function() {
+            $httpBackend.flush();
+            resource = getResolvedValue(promise);
+          });
+          it('is called with the resolved resource', function() {
+            expect(initSpy).toHaveBeenCalledWith(resource);
           });
         });
       });
       describe('when given a custom pathfinder in the config (third argument)', function() {
-        var pathfinder;
+        var pathfinder, resource;
         beforeEach(function() {
           pathfinder = jasmine.createSpy('pathfinder').andReturn('/custom/pathfinder');
-          resource = api.post('/with/pathfinder', { foo: 'notbar' }, {pathfinder: pathfinder});
+          promise = api.post('/with/pathfinder', { foo: 'notbar' }, {pathfinder: pathfinder});
+          $httpBackend.flush();
+          resource = getResolvedValue(promise);
         });
-        describe('returned resource', function() {
+        describe('pathfinder function', function() {
+          it('is called with given path and returned resource', function() {
+            expect(pathfinder).toHaveBeenCalledWith('/with/pathfinder', resource);
+          });
+        });
+        describe('resolved resource', function() {
           describe('.$path', function() {
-            it('is null', function() {
-              expect(resource.$path).toBe(null);
-            });
-            describe('when .$promise resolves', function() {
-              beforeEach(function() {
-                $httpBackend.flush();
-                resolveAll();
-              });
-              it('is set to returned value from custom pathfinder', function() {
-                expect(resource.$path).toBe('/custom/pathfinder');
-              });
-              describe('custom pathfinder', function() {
-                it('is called with given path and returned resource', function() {
-                  expect(pathfinder).toHaveBeenCalledWith('/with/pathfinder', resource);
-                });
-              });
+            it('is set to returned value from custom pathfinder', function() {
+              expect(resource.$path).toBe('/custom/pathfinder');
             });
           });
         });
       });
       describe('when given an array of path transformers in the config (third argument)', function() {
-        var resource, pathSpy, transformersSpy;
+        var pathSpy, transformersSpy;
         beforeEach(function() {
           pathSpy = jasmine.createSpy('path').andReturn('/path/transformers');
           transformersSpy = jasmine.createSpy('transformers').andReturn('/with/path/transformers');
-          resource = api.post('/transformers', {}, { transformPath: [ pathSpy, transformersSpy ] });
+          promise = api.post('/transformers', {}, { transformPath: [ pathSpy, transformersSpy ] });
         });
         afterEach(function() {
           $httpBackend.verifyNoOutstandingExpectation();
@@ -709,16 +718,15 @@ describe('epixa-resource', function() {
         it('decorates the http path in the array order', function() {
           $httpBackend.expectPOST('/with/path/transformers');
         });
-        describe('returned resource', function() {
+        describe('resolved resource', function() {
+          var resource;
+          beforeEach(function() {
+            $httpBackend.flush();
+            resource = getResolvedValue(promise);
+          });
           describe('.$path', function() {
-            describe('when http request completes', function() {
-              beforeEach(function() {
-                $httpBackend.flush();
-                resolveAll();
-              });
-              it('is not affected', function() {
-                expect(resource.$path).toBe('/transformers/1');
-              });
+            it('is not affected', function() {
+              expect(resource.$path).toBe('/transformers/1');
             });
           });
         });

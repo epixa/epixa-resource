@@ -1,4 +1,3 @@
-// v0.4.3 https://github.com/epixa/epixa-resource
 (function(angular, undefined){'use strict';
 
 var eResource = angular.module('epixa-resource', []);
@@ -59,12 +58,18 @@ eResource.factory('resource-api', [
       post: function postResource(path, data, config) {
         config = initConfig(config);
         var pathfinder = (config.pathfinder ? config.pathfinder : api.defaults.pathfinder).bind(null, path);
-        var promise = $http.post(httpPath(config.transformPath, path), data, config).then(extractData);
-        var resource = resourceFactory(pathfinder, promise, config.initializer);
-        resource.$promise = resource.$promise.then(cache.store);
-        resource.$reloading = resource.$promise;
-        defineReloadFn(resource, config);
-        return resource;
+        return $http.post(httpPath(config.transformPath, path), data, config).then(extractData)
+        .then(function(data) {
+          return resourceFactory(pathfinder, data, config.initializer).$promise;
+        }).then(function(resource) {
+          var storedResource = cache.retrieve(resource.$path);
+          if (!storedResource) {
+            cache.store(resource);
+            defineReloadFn(resource, config);
+            return resource;
+          }
+          return storedResource.$extend(resource);
+        });
       },
       put: function putResource(path, data, config) {
         config = initConfig(config);
@@ -78,14 +83,11 @@ eResource.factory('resource-api', [
         var promise = $http.put(httpPath(config.transformPath, path), data, config).then(extractData);
         return resourceFactory(path, promise, initializeResource.bind(null, config)).$promise.then(function(resource) {
           var storedResource = cache.retrieve(resource.$path);
-          if (storedResource) {
-            return promise.then(function(data) {
-              return storedResource.$extend(data);
-            });
+          if (!storedResource) {
+            cache.store(resource);
+            return resource;
           }
-          resource.$promise = resource.$promise.then(cache.store);
-          resource.$reloading = resource.$promise;
-          return resource;
+          return storedResource.$extend(resource);
         });
       },
       delete: function deleteResource(path, config) {
