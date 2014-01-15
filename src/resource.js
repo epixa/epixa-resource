@@ -373,6 +373,10 @@ eResource.factory('collection-factory', [
       return collection;
     }
 
+    function forceArray(data) {
+      return angular.isArray(data) ? data : [];
+    }
+
     return function collectionFactory(path, data, pathfinder, init) {
       angular.isDefined(path) || (path = null);
       angular.isDefined(data) || (data = []);
@@ -381,7 +385,7 @@ eResource.factory('collection-factory', [
       var collection = Object.create(CollectionPrototype, {
         $path: { value: path },
         $loaded: { value: false, writable: true },
-        $promise: { value: $q.when(data), writable: true },
+        $promise: { value: $q.when(data).then(forceArray), writable: true },
         $reloading: {
           get: function() { return reloading; },
           set: function(val) {

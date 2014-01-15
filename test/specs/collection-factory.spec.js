@@ -236,6 +236,19 @@ describe('epixa-resource', function() {
       });
     });
 
+    describe('when given non-array data (second argument)', function() {
+      var collection;
+      beforeEach(function() {
+        collection = factory(null, "test");
+      });
+      describe('returned collection', function() {
+        beforeEach(resolveAll.bind(this));
+        it('is empty', function() {
+          expect(collection.length).toBe(0);
+        });
+      });
+    });
+
     describe('requires pathfinder (third argument)', function() {
       var collection, entities, pathfinderSpy;
       beforeEach(function() {
