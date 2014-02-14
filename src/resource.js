@@ -327,6 +327,9 @@ eResource.factory('collection-factory', [
         });
         matchedResources.forEach(this.remove.bind(this));
       },
+      contains: function contains(resource) {
+        return resource.$path in this.index;
+      },
       remove: function remove(resource){
         var reindexing = false;
         angular.forEach(this.index, function(key, path){
