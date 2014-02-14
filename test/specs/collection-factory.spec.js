@@ -126,10 +126,11 @@ describe('epixa-resource', function() {
       });
 
       describe('.contains()', function() {
+        var newResource;
         beforeEach(function() {
           resolveAll();
           collection.add(mockResource);
-          var newResource = angular.copy(mockResource);
+          newResource = angular.copy(mockResource);
           newResource.$path = '/foo/2';
         });
         it('should return true if given resource is in collection', function() {
