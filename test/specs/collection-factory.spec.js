@@ -125,6 +125,21 @@ describe('epixa-resource', function() {
         });
       });
 
+      describe('.contains()', function() {
+        beforeEach(function() {
+          resolveAll();
+          collection.add(mockResource);
+          var newResource = angular.copy(mockResource);
+          newResource.$path = '/foo/2';
+        });
+        it('should return true if given resource is in collection', function() {
+          expect(collection.contains(mockResource)).toBe(true);
+        });
+        it('should return false if given resource is not in collection', function() {
+          expect(collection.contains(newResource)).toBe(false);
+        });
+      });
+
       describe('.remove()', function() {
         beforeEach(function() {
           resolveAll();

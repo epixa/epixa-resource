@@ -4,7 +4,7 @@
   "description": "An angular.js module for mapping http requests to/from defined model objects.",
   "keywords": [ "angular.js", "angular", "resource", "rest", "http", "api" ],
   "homepage": "https://github.com/epixa/epixa-resource",
-  "authors": [ "Court Ewing <court@epixa.com>" ],
+  "authors": [ "Court Ewing <court@epixa.com>", "Nick Sergeant <nick@nicksergeant.com>" ],
   "license": "MIT",
   "repository": {
     "type": "git",
