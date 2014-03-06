@@ -23,9 +23,7 @@ eResource.factory('resource-api', [
         } else {
           reload = reload.then(resource.$extend.bind(resource));
         }
-        reload.then(function() {
-          deferred.resolve(resource);
-        });
+        reload.then(deferred.resolve, deferred.reject, deferred.notify);
 
         return resource.$reloading;
       },
@@ -246,7 +244,12 @@ eResource.factory('resource-factory', [
         $reloading: {
           get: function() { return reloading; },
           set: function(val) {
-            reloading = val ? val.then(markAsNotReloading, markAsNotReloading) : false;
+            if (val) {
+              val = val.finally(function() {
+                markAsNotReloading(resource);
+              });
+            }
+            reloading = val;
           }
         }
       });
@@ -392,7 +395,12 @@ eResource.factory('collection-factory', [
         $reloading: {
           get: function() { return reloading; },
           set: function(val) {
-            reloading = val ? val.then(markAsNotReloading, markAsNotReloading) : false;
+            if (val) {
+              val = val.finally(function() {
+                markAsNotReloading(collection);
+              });
+            }
+            reloading = val;
           }
         },
         resources: { value: [] },
