@@ -112,6 +112,7 @@ eResource.factory('resource-api', [
     }
     function defineReloadFn(resource, config) {
       Object.defineProperty(resource, '$reload', {
+        configurable: true,
         value: reload.bind(null, resource, config.$original)
       });
     }
