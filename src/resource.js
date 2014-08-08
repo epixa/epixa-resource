@@ -58,12 +58,13 @@ eResource.factory('resource-api', [
         var pathfinder = (config.pathfinder ? config.pathfinder : api.defaults.pathfinder).bind(null, path);
         return $http.post(httpPath(config.transformPath, path), data, config).then(extractData)
         .then(function(data) {
-          return resourceFactory(pathfinder, data, config.initializer).$promise;
+          var resource = resourceFactory(pathfinder, data, config.initializer);
+          defineReloadFn(resource, config);
+          return resource.$promise;
         }).then(function(resource) {
           var storedResource = cache.retrieve(resource.$path);
           if (!storedResource) {
             cache.store(resource);
-            defineReloadFn(resource, config);
             return resource;
           }
           return storedResource.$extend(resource);
