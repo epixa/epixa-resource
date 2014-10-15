@@ -15,6 +15,8 @@ describe('epixa-resource', function() {
     $httpBackend.whenGET('/foo/2').respond({ id:2, 'foo':'notbar' });
     $httpBackend.whenGET('/404').respond(404);
 
+    $httpBackend.whenGET('/like/collection').respond({ resources: [] });
+
     $httpBackend.whenPOST('/foo').respond(201, {id:2, 'foo':'notbar'});
     $httpBackend.whenPOST('/with/pathfinder').respond(201, {id:1, 'something':'else'});
     $httpBackend.whenPOST('/500').respond(500);
@@ -70,6 +72,17 @@ describe('epixa-resource', function() {
         });
         it('does not fire off a new GET request for that collection', function() {
           $httpBackend.verifyNoOutstandingRequest();
+        });
+      });
+      describe('when given a resource that looks surprisingly similar to a collection', function() {
+        var likeCollection;
+        beforeEach(function() {
+          likeCollection = api.get('/like/collection');
+          $httpBackend.flush();
+          resolveAll();
+        });
+        it('does not trigger any javascript errors', function() {
+          expect(api.reload.bind(api, likeCollection)).not.toThrow();
         });
       });
       describe('when given an already loaded resource', function() {

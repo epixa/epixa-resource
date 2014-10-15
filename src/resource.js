@@ -418,7 +418,7 @@ eResource.factory('collection-factory', [
 );
 
 function isCollection(obj) {
-  return obj && angular.isArray(obj.resources) && isThenable(obj.$promise);
+  return obj && isThenable(obj.$promise) && Object.getPrototypeOf(obj).hasOwnProperty('length');
 }
 function isThenable(obj) {
   return obj && angular.isFunction(obj.then);
