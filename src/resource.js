@@ -187,23 +187,33 @@ eResource.factory('resource-factory', [
   function($q) {
     var ResourcePrototype = {
       $proxy: function $proxy(property, fn) {
-        if (!this[property]) {
-          throw new Error('Proxy of undefined/null for property ' + property);
+        if (property in this.$proxies) {
+          throw new Error('Property `' + property + '` has already been proxied');
         }
-        this.$proxies[property] = this[property];
+        if (this[property] === undefined) {
+          this[property] = null;
+        }
+        this.$proxies[property] = {
+          value: this[property],
+          proxy: function() {
+            var value = this.$proxies[property].value;
+            var args = Array.prototype.slice.call(arguments);
+            args.unshift(value);
+            return value === null ? null : fn.apply(fn, args);
+          }
+        };
         var args = Array.prototype.slice.call(arguments, 2);
         Object.defineProperty(this, property, {
-          configurable: true,
+          enumerable: true,
+          configurable: false,
           get: function() {
-            this[property] = fn.apply(fn, args);
-            return this[property];
+            return this.$proxies[property].proxy.apply(this, args);
           },
-          set: function(resource) {
-            Object.defineProperty(this, property, {
-              configurable: true,
-              writable: true,
-              value: resource
-            });
+          set: function(value) {
+            if (value === undefined) {
+              value = null;
+            }
+            this.$proxies[property].value = value;
           }
         });
       },
@@ -215,7 +225,6 @@ eResource.factory('resource-factory', [
     function extendResource(resource, data) {
       angular.forEach(angular.extend({}, data), function(val, key) {
         if (key[0] === '$') return;
-        if (key in resource.$proxies) return;
         resource[key] = val;
       });
       return resource;

@@ -95,9 +95,6 @@ describe('epixa-resource', function() {
         it('ignores properties that begin with a $ (dollar sign)', function() {
           expect(resource.$path).toBe(null);
         });
-        it('ignores properties that have previously been proxied', function() {
-          expect(resource.something).toBe('notelse');
-        });
         it('provides a fluent interface (return itself)', function() {
           expect(returnedValue).toBe(resource);
         });
@@ -113,25 +110,44 @@ describe('epixa-resource', function() {
         it('does not call the custom function immediately', function() {
           expect(proxyFoo).not.toHaveBeenCalled();
         });
-        it('calls the custom function when property is accessed', function() {
+        it('calls the custom function with the current value when property is accessed', function() {
           resource.foo;
-          expect(proxyFoo).toHaveBeenCalled();
+          expect(proxyFoo).toHaveBeenCalledWith('bar');
         });
         it('sets the property to the return value of the proxy function', function() {
           expect(resource.foo).toBe('notbar');
         });
-        describe('when called for a property that does not exist', function() {
+        it('property becomes null when set to undefined', function() {
+          resource.foo = undefined;
+          expect(resource.foo).toBe(null);
+        });
+        it('indexes the property name as the original value on the $proxies object', function() {
+          expect(resource.$proxies.foo.value).toBe('bar');
+        });
+        describe('when called for a property that was already proxied', function() {
           var proxy;
           beforeEach(function() {
-            proxy = function() { resource.$proxy('somethingelse', angular.noop) };
+            proxy = function() { resource.$proxy('foo', function(){}); };
           });
           it('throws an error', function() {
             expect(proxy).toThrow();
           });
         });
-        describe('when called for a property that does exist', function() {
-          it('indexes the property name as the original value on the $proxies object', function() {
-            expect(resource.$proxies.foo).toBe('bar');
+        describe('when called for a property that does not exist', function() {
+          beforeEach(function() {
+            resource.$proxy('somethingelse', angular.noop);
+          });
+          it('property defaults to null', function() {
+            expect(resource.somethingelse).toBe(null);
+          });
+        });
+        describe('when property is changed', function() {
+          beforeEach(function() {
+            resource.foo = 'entirelynew';
+          });
+          it('proxy is called with new value on access', function() {
+            resource.foo;
+            expect(proxyFoo).toHaveBeenCalledWith('entirelynew');
           });
         });
       });
