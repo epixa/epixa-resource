@@ -19,7 +19,8 @@ eResource.factory('resource-api', [
           var pathfinder = (config.pathfinder ? config.pathfinder : api.defaults.pathfinder).bind(null, resource.$path);
           reload = collectionFactory(resource.$path, reload, pathfinder, initializeResource.bind(null, config)).$promise
             .then(resource.sync.bind(resource))
-            .then(syncResourcesWithCache);
+            .then(syncResourcesWithCache)
+            .then(waitForResourcePromises);
         } else {
           reload = reload.then(resource.$extend.bind(resource));
         }
@@ -36,6 +37,7 @@ eResource.factory('resource-api', [
           collection = collectionFactory(path, promise, pathfinder, initializeResource.bind(null, config));
           cache.store(collection);
           collection.$promise = collection.$promise.then(syncResourcesWithCache);
+          collection.$promise = collection.$promise.then(waitForResourcePromises);
           collection.$reloading = collection.$promise;
           defineReloadFn(collection, config);
         }
@@ -154,6 +156,10 @@ eResource.factory('resource-api', [
       });
       return collection;
     };
+    function waitForResourcePromises(collection) {
+      return $q.all(collection.resources.map(function(r) { return r.$promise; }))
+        .then(function() { return collection; });
+    }
 
     return api;
   }
