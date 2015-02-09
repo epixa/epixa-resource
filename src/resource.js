@@ -2,162 +2,171 @@
 
 var eResource = angular.module('epixa-resource', []);
 
-eResource.factory('resource-api', [
-  '$http', '$q', 'resource-cache', 'resource-factory', 'collection-factory',
-  function($http, $q, cache, resourceFactory, collectionFactory) {
-    var api = {
-      reload: function reloadResource(resource, config) {
-        if (resource.$reloading) {
+eResource.provider('resource-api', function eResourceProvider(){
+
+  var defaultConfig = {};
+
+  this.defaultConfig = function(config) {
+    defaultConfig = config;
+  };
+
+  this.$get = [
+    '$http', '$q', 'resource-cache', 'resource-factory', 'collection-factory',
+    function($http, $q, cache, resourceFactory, collectionFactory) {
+      var api = {
+        reload: function reloadResource(resource, config) {
+          if (resource.$reloading) {
+            return resource.$reloading;
+          }
+          var deferred = $q.defer();
+          resource.$reloading = deferred.promise;
+
+          config = initConfig(config);
+          var reload = $http.get(httpPath(config.transformPath, resource.$path), config).then(extractData);
+          if (isCollection(resource)) {
+            var pathfinder = (config.pathfinder ? config.pathfinder : api.defaults.pathfinder).bind(null, resource.$path);
+            reload = collectionFactory(resource.$path, reload, pathfinder, initializeResource.bind(null, config)).$promise
+              .then(resource.sync.bind(resource))
+              .then(syncResourcesWithCache);
+          } else {
+            reload = reload.then(resource.$extend.bind(resource));
+          }
+          reload.then(deferred.resolve, deferred.reject, deferred.notify);
+
           return resource.$reloading;
-        }
-        var deferred = $q.defer();
-        resource.$reloading = deferred.promise;
-
-        config = initConfig(config);
-        var reload = $http.get(httpPath(config.transformPath, resource.$path), config).then(extractData);
-        if (isCollection(resource)) {
-          var pathfinder = (config.pathfinder ? config.pathfinder : api.defaults.pathfinder).bind(null, resource.$path);
-          reload = collectionFactory(resource.$path, reload, pathfinder, initializeResource.bind(null, config)).$promise
-            .then(resource.sync.bind(resource))
-            .then(syncResourcesWithCache);
-        } else {
-          reload = reload.then(resource.$extend.bind(resource));
-        }
-        reload.then(deferred.resolve, deferred.reject, deferred.notify);
-
-        return resource.$reloading;
-      },
-      query: function queryResources(path, config) {
-        var collection = cache.retrieve(path);
-        if (!collection) {
+        },
+        query: function queryResources(path, config) {
+          var collection = cache.retrieve(path);
+          if (!collection) {
+            config = initConfig(config);
+            var pathfinder = (config.pathfinder ? config.pathfinder : api.defaults.pathfinder).bind(null, path);
+            var promise = $http.get(httpPath(config.transformPath, path), config).then(extractData);
+            collection = collectionFactory(path, promise, pathfinder, initializeResource.bind(null, config));
+            cache.store(collection);
+            collection.$promise = collection.$promise.then(syncResourcesWithCache);
+            collection.$reloading = collection.$promise;
+            defineReloadFn(collection, config);
+          }
+          return collection;
+        },
+        get: function getResource(path, config) {
+          var resource = cache.retrieve(path);
+          if (!resource) {
+            config = initConfig(config);
+            var promise = $http.get(httpPath(config.transformPath, path), config).then(extractData);
+            resource = resourceFactory(path, promise, config.initializer);
+            cache.store(resource);
+            resource.$reloading = resource.$promise;
+            defineReloadFn(resource, config);
+          }
+          return resource;
+        },
+        post: function postResource(path, data, config) {
           config = initConfig(config);
           var pathfinder = (config.pathfinder ? config.pathfinder : api.defaults.pathfinder).bind(null, path);
-          var promise = $http.get(httpPath(config.transformPath, path), config).then(extractData);
-          collection = collectionFactory(path, promise, pathfinder, initializeResource.bind(null, config));
-          cache.store(collection);
-          collection.$promise = collection.$promise.then(syncResourcesWithCache);
-          collection.$reloading = collection.$promise;
-          defineReloadFn(collection, config);
-        }
-        return collection;
-      },
-      get: function getResource(path, config) {
-        var resource = cache.retrieve(path);
-        if (!resource) {
+          return $http.post(httpPath(config.transformPath, path), data, config).then(extractData)
+            .then(function(data) {
+              var resource = resourceFactory(pathfinder, data, config.initializer);
+              defineReloadFn(resource, config);
+              return resource.$promise;
+            }).then(function(resource) {
+              var storedResource = cache.retrieve(resource.$path);
+              if (!storedResource) {
+                cache.store(resource);
+                return resource;
+              }
+              return storedResource.$extend(resource);
+            });
+        },
+        put: function putResource(path, data, config) {
           config = initConfig(config);
-          var promise = $http.get(httpPath(config.transformPath, path), config).then(extractData);
-          resource = resourceFactory(path, promise, config.initializer);
-          cache.store(resource);
-          resource.$reloading = resource.$promise;
-          defineReloadFn(resource, config);
-        }
-        return resource;
-      },
-      post: function postResource(path, data, config) {
-        config = initConfig(config);
-        var pathfinder = (config.pathfinder ? config.pathfinder : api.defaults.pathfinder).bind(null, path);
-        return $http.post(httpPath(config.transformPath, path), data, config).then(extractData)
-        .then(function(data) {
-          var resource = resourceFactory(pathfinder, data, config.initializer);
-          defineReloadFn(resource, config);
-          return resource.$promise;
-        }).then(function(resource) {
-          var storedResource = cache.retrieve(resource.$path);
-          if (!storedResource) {
-            cache.store(resource);
-            return resource;
+          if (data && angular.isObject(data.$proxies)) {
+            var proxies = data.$proxies;
+            data = angular.extend({}, data);
+            angular.forEach(proxies, function(url, property) {
+              data[property] = url;
+            });
           }
-          return storedResource.$extend(resource);
-        });
-      },
-      put: function putResource(path, data, config) {
-        config = initConfig(config);
-        if (data && angular.isObject(data.$proxies)) {
-          var proxies = data.$proxies;
-          data = angular.extend({}, data);
-          angular.forEach(proxies, function(url, property) {
-            data[property] = url;
+          var promise = $http.put(httpPath(config.transformPath, path), data, config).then(extractData);
+          return resourceFactory(path, promise, initializeResource.bind(null, config)).$promise.then(function(resource) {
+            var storedResource = cache.retrieve(resource.$path);
+            if (!storedResource) {
+              cache.store(resource);
+              return resource;
+            }
+            return storedResource.$extend(resource);
           });
-        }
-        var promise = $http.put(httpPath(config.transformPath, path), data, config).then(extractData);
-        return resourceFactory(path, promise, initializeResource.bind(null, config)).$promise.then(function(resource) {
-          var storedResource = cache.retrieve(resource.$path);
-          if (!storedResource) {
-            cache.store(resource);
-            return resource;
+        },
+        delete: function deleteResource(path, config) {
+          config = initConfig(config);
+          return $http.delete(httpPath(config.transformPath, path), config).then(function(response) {
+            cache.remove(path);
+            return response;
+          });
+        },
+        defaults: {
+          cache: false,
+          transformPath: [],
+          transformRequest: angular.copy($http.defaults.transformRequest),
+          transformResponse: angular.copy($http.defaults.transformResponse),
+          pathfinder: function defaultPathfinder(path, resource) {
+            return path.substring(path.lastIndexOf('/')) + '/' + resource.id;
           }
-          return storedResource.$extend(resource);
-        });
-      },
-      delete: function deleteResource(path, config) {
-        config = initConfig(config);
-        return $http.delete(httpPath(config.transformPath, path), config).then(function(response) {
-          cache.remove(path);
-          return response;
-        });
-      },
-      defaults: {
-        cache: false,
-        transformPath: [],
-        transformRequest: angular.copy($http.defaults.transformRequest),
-        transformResponse: angular.copy($http.defaults.transformResponse),
-        pathfinder: function defaultPathfinder(path, resource) {
-          return path.substring(path.lastIndexOf('/')) + '/' + resource.id;
         }
+      };
+
+      function initializeResource(config, resource) {
+        defineReloadFn(resource, config);
+        (config.initializer || angular.noop)(resource);
       }
-    };
+      function defineReloadFn(resource, config) {
+        Object.defineProperty(resource, '$reload', {
+          configurable: true,
+          value: reload.bind(null, resource, config.$original)
+        });
+      }
+      function reload(resource, config) {
+        return api.reload(resource, config);
+      }
+      function extractData(obj) {
+        return obj.data;
+      }
+      function initConfig(config) {
+        var original = angular.extend({}, config);
+        config = angular.extend({}, defaultConfig, original, {
+          transformPath: original.transformPath ? angular.copy(original.transformPath) : [],
+          transformRequest: original.transformRequest ? angular.copy(original.transformRequest) : [],
+          transformResponse: original.transformResponse ? angular.copy(original.transformResponse) : [],
+          cache: false,
+          $original: original
+        });
+        config.transformPath.push.apply(config.transformPath, angular.copy(api.defaults.transformPath));
+        config.transformRequest.push.apply(config.transformRequest, angular.copy(api.defaults.transformRequest));
+        config.transformResponse.unshift.apply(config.transformResponse, angular.copy(api.defaults.transformResponse));
+        return config;
+      }
+      function httpPath(transformers, path) {
+        return transformers.reduce(function(path, fn) {
+          return fn(path);
+        }, path);
+      }
+      function syncResourcesWithCache(collection) {
+        collection.resources.forEach(function(resource, index, resources) {
+          var storedResource = cache.retrieve(resource.$path);
+          if (storedResource) {
+            resources[index] = storedResource;
+            storedResource.$extend(resource);
+          } else {
+            cache.store(resource);
+          }
+        });
+        return collection;
+      };
 
-    function initializeResource(config, resource) {
-      defineReloadFn(resource, config);
-      (config.initializer || angular.noop)(resource);
+      return api;
     }
-    function defineReloadFn(resource, config) {
-      Object.defineProperty(resource, '$reload', {
-        configurable: true,
-        value: reload.bind(null, resource, config.$original)
-      });
-    }
-    function reload(resource, config) {
-      return api.reload(resource, config);
-    }
-    function extractData(obj) {
-      return obj.data;
-    }
-    function initConfig(config) {
-      var original = angular.extend({}, config);
-      config = angular.extend({}, original, {
-        transformPath: original.transformPath ? angular.copy(original.transformPath) : [],
-        transformRequest: original.transformRequest ? angular.copy(original.transformRequest) : [],
-        transformResponse: original.transformResponse ? angular.copy(original.transformResponse) : [],
-        cache: false,
-        $original: original
-      });
-      config.transformPath.push.apply(config.transformPath, angular.copy(api.defaults.transformPath));
-      config.transformRequest.push.apply(config.transformRequest, angular.copy(api.defaults.transformRequest));
-      config.transformResponse.unshift.apply(config.transformResponse, angular.copy(api.defaults.transformResponse));
-      return config;
-    }
-    function httpPath(transformers, path) {
-      return transformers.reduce(function(path, fn) {
-        return fn(path);
-      }, path);
-    }
-    function syncResourcesWithCache(collection) {
-      collection.resources.forEach(function(resource, index, resources) {
-        var storedResource = cache.retrieve(resource.$path);
-        if (storedResource) {
-          resources[index] = storedResource;
-          storedResource.$extend(resource);
-        } else {
-          cache.store(resource);
-        }
-      });
-      return collection;
-    };
-
-    return api;
-  }
-]);
+  ];
+});
 
 eResource.factory('resource-cache', function() {
   var resources = {};
