@@ -1,7 +1,16 @@
 'use strict';
 
 describe('epixa-resource', function() {
-  beforeEach(module('epixa-resource'));
+  beforeEach(function() {
+    module('epixa-resource', ['resource-apiProvider', function(resourceApiProvider){
+      resourceApiProvider.defaultConfig({
+        headers: {
+          Accept: 'application/json.v2'
+        }
+      });
+    }])
+  });
+
 
   var $rootScope, $httpBackend, fooData;
   beforeEach(inject(function($injector) {
@@ -43,6 +52,41 @@ describe('epixa-resource', function() {
     beforeEach(inject(function($injector) {
       api = $injector.get('resource-api');
     }));
+
+    describe('configuration', function () {
+      describe('headers', function() {
+        it('should use default configuration if set', function () {
+          $httpBackend.expectGET('/config-test/1', function(headers) {
+            return headers['Accept'] === 'application/json.v2';
+          }).respond({});
+          api.get('/config-test/1', {});
+          $httpBackend.flush();
+        });
+
+        it('should use overridden configuration, if available', function () {
+          $httpBackend.expectGET('/config-test/1', function(headers) {
+            return headers['Accept'] === 'application/json.overridden';
+          }).respond({});
+          api.get('/config-test/1', {
+            headers: {
+              Accept: 'application/json.overridden'
+            }
+          });
+          $httpBackend.flush();
+        });
+
+        it('should allow default configuration to change', function() {
+          api.defaults.headers = {
+            Accept: 'application/json.overridden2'
+          };
+          $httpBackend.expectGET('/config-test/1', function(headers) {
+            return headers['Accept'] === 'application/json.overridden2';
+          }).respond({});
+          api.get('/config-test/1');
+          $httpBackend.flush();
+        });
+      });
+    });
 
     describe('.reload()', function() {
       var resource, collection, collectionConfig;
