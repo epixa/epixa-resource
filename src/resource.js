@@ -6,8 +6,12 @@ eResource.provider('resource-api', function eResourceProvider(){
 
   var defaultConfig = {};
 
+  /*
+    Supported config:
+      headers
+   */
   this.defaultConfig = function(config) {
-    defaultConfig = config;
+    defaultConfig = angular.copy(config);
   };
 
   this.$get = [
@@ -106,6 +110,7 @@ eResource.provider('resource-api', function eResourceProvider(){
         },
         defaults: {
           cache: false,
+          headers: defaultConfig.headers || {},
           transformPath: [],
           transformRequest: angular.copy($http.defaults.transformRequest),
           transformResponse: angular.copy($http.defaults.transformResponse),
@@ -133,13 +138,18 @@ eResource.provider('resource-api', function eResourceProvider(){
       }
       function initConfig(config) {
         var original = angular.extend({}, config);
-        config = angular.extend({}, defaultConfig, original, {
-          transformPath: original.transformPath ? angular.copy(original.transformPath) : [],
-          transformRequest: original.transformRequest ? angular.copy(original.transformRequest) : [],
-          transformResponse: original.transformResponse ? angular.copy(original.transformResponse) : [],
-          cache: false,
-          $original: original
-        });
+        config = angular.extend({
+            headers: api.defaults.headers
+          },
+          original,
+          {
+            transformPath: original.transformPath ? angular.copy(original.transformPath) : [],
+            transformRequest: original.transformRequest ? angular.copy(original.transformRequest) : [],
+            transformResponse: original.transformResponse ? angular.copy(original.transformResponse) : [],
+            cache: false,
+            $original: original
+          }
+        );
         config.transformPath.push.apply(config.transformPath, angular.copy(api.defaults.transformPath));
         config.transformRequest.push.apply(config.transformRequest, angular.copy(api.defaults.transformRequest));
         config.transformResponse.unshift.apply(config.transformResponse, angular.copy(api.defaults.transformResponse));
