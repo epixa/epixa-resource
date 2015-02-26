@@ -231,8 +231,33 @@ eResource.factory('resource-factory', [
       }
     };
 
+    /**
+     * Omits the given properties from the object without iterating over
+     * the object
+     *
+     * This is important in the event that the given data object is a
+     * resource because iterating over proxied properties on a resource
+     * will fire off a bunch of erroneous requests.
+     */
+    function safeOmit(data, properties) {
+      var obj = {};
+
+      Object.keys(data)
+        .filter(function(key) {
+          return properties.indexOf(key) === -1;
+        })
+        .forEach(function(prop) {
+          obj[prop] = data[prop];
+        });
+
+      return obj;
+    }
+
     function extendResource(resource, data) {
-      angular.forEach(angular.extend({}, data), function(val, key) {
+      data = data || {};
+      data = safeOmit(data, Object.keys(data.$proxies || {}));
+
+      angular.forEach(data, function(val, key) {
         if (key[0] === '$') return;
         if (key in resource.$proxies) return;
         resource[key] = val;
