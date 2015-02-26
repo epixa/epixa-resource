@@ -83,23 +83,51 @@ describe('epixa-resource', function() {
       });
 
       describe('.$extend()', function() {
-        var returnedValue;
-        beforeEach(function() {
-          resource.something = 'else';
-          resource.$proxy('something', angular.identity.bind(null, 'notelse'));
-          returnedValue = resource.$extend({ $path: '/foo', foo: 'bar', something: 'else' });
+        describe("when the given object is not a resource", function () {
+          var returnedValue;
+          beforeEach(function() {
+            resource.something = 'else';
+            resource.$proxy('something', angular.identity.bind(null, 'notelse'));
+            returnedValue = resource.$extend({ $path: '/foo', foo: 'bar', something: 'else' });
+          });
+          it('extends the resource with properties on the given object', function() {
+            expect(resource.foo).toBe('bar');
+          });
+          it('ignores properties that begin with a $ (dollar sign)', function() {
+            expect(resource.$path).toBe(null);
+          });
+          it('ignores properties that have previously been proxied', function() {
+            expect(resource.something).toBe('notelse');
+          });
+          it('provides a fluent interface (return itself)', function() {
+            expect(returnedValue).toBe(resource);
+          });
         });
-        it('extends the resource with properties on the given object', function() {
-          expect(resource.foo).toBe('bar');
-        });
-        it('ignores properties that begin with a $ (dollar sign)', function() {
-          expect(resource.$path).toBe(null);
-        });
-        it('ignores properties that have previously been proxied', function() {
-          expect(resource.something).toBe('notelse');
-        });
-        it('provides a fluent interface (return itself)', function() {
-          expect(returnedValue).toBe(resource);
+
+        describe("when the given object is also a resource", function () {
+          var returnedValue;
+          var proxySpy;
+          beforeEach(function () {
+            resource.something = 'else';
+            resource.$proxy('something', angular.identity.bind(null, 'notelse'));
+
+            var givenObject = factory();
+            givenObject.foo = 'bar';
+            givenObject.something = 'entirelyDifferent';
+            proxySpy = jasmine.createSpy('something').andReturn('anotherThingEntirely');
+            givenObject.$proxy('something', proxySpy);
+            returnedValue = resource.$extend(givenObject);
+          });
+          it("does copy non-proxied values of the given object", function () {
+            expect(returnedValue.foo).toBe('bar');
+          });
+          /* Important because we don't want to execute properties of the given object, which could fire off lots of erroneous http calls */
+          it("does not execute proxies of the given object", function () {
+            expect(proxySpy).not.toHaveBeenCalled();
+          });
+          it('does not copy proxied values of the given object', function () {
+            expect(returnedValue.something).toBe('notelse');
+          });
         });
       });
 
